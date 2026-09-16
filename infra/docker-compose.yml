@@ -1,0 +1,21 @@
+services:
+  frontend:
+    build:
+      context: ../frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend-py
+      - route-go
+
+  backend-py:
+    build:
+      context: ../backend-py
+    ports:
+      - "8000:8000"
+
+  route-go:
+    build:
+      context: ../route-go
+    ports:
+      - "8080:8080"

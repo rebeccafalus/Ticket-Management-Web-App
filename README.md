@@ -1,28 +1,70 @@
-# Inquiry Desk
+# Ticket Management Web App
 
-An MVP three-tier inquiry management system:
+This workspace is split into four repository areas:
 
-- **Frontend:** React + Vite, served by Nginx
-- **Backend:** ASP.NET Core 8 minimal API
-- **Database:** PostgreSQL 16 with an indexed inquiry table
+- `frontend/` - web client
+- `backend-py/` - Python API
+- `route-go/` - Go routing service
+- `infra/` - local service orchestration
 
-## Run the MVP
+## Health endpoints
 
-Install Docker Desktop or Docker Engine with Compose, then run:
+Run the services locally:
 
 ```bash
-docker compose up --build
+cd backend-py && python3 -m pip install -r requirements.txt && uvicorn app.main:app --port 8000
+cd route-go && go run .
 ```
 
-Open `http://localhost:3000`. The API is available at `http://localhost:8080` and exposes a health check at `/health`.
+Then check:
 
-## Included features
+```bash
+curl http://localhost:8000/health
+curl http://localhost:8080/health
+```
 
-- Create and edit inquiries with validation
-- Assign or unassign inquiries inline
-- Change status between Open, In Progress, Resolved, and Closed
-- View the inquiry list with summary counts
-- Search by title, description, requester, or email
-- Filter by status
+Both endpoints return `{"status":"ok"}`.
 
-The database is seeded with three sample inquiries on its first startup. To reset that data, run `docker compose down -v` before starting the stack again.
+## Docker Compose
+
+From the repository root:
+
+```bash
+docker compose -f infra/docker-compose.yml up --build
+```
+
+## CI/CD and security
+
+The GitHub Actions workflows provide:
+
+- Pull-request validation: Python and Go checks, Compose build, smoke tests, and Trivy filesystem scanning
+- Required merge gates: configure `Pull request validation / validate` as a required status check in branch protection
+- Image publishing: immutable SHA tags and `latest` tags in GitHub Container Registry
+- Staging deployment: automatic deployment to Kubernetes after a successful `main` build, followed by rollout and smoke tests
+- Production deployment: paused behind the GitHub `production` Environment approval rule
+- Security scanning: Trivy filesystem and image scans on pull requests, releases, and every Monday at 03:30 UTC
+
+Configure these repository settings before enabling deployments:
+
+1. Create `staging` and `production` GitHub Environments.
+2. Add `KUBE_CONFIG_STAGING` and `KUBE_CONFIG_PRODUCTION` as environment secrets containing base64 kubeconfig values. Add required reviewers to `production`.
+3. Protect `main` and require the `Pull request validation / validate` check before merging.
+4. Grant the Actions workflow permission to write packages, and make the GHCR packages readable by the target clusters.
+
+Kubernetes manifests are in `infra/k8s/`. The deployment workflow replaces the placeholder registry owner and image tag before applying them.
+
+## Rollback
+
+Every deployment uses an immutable commit SHA image tag. To roll back a failed staging or production release, identify the previous revision and run:
+
+```bash
+kubectl -n ticket-management rollout history deployment/frontend
+kubectl -n ticket-management rollout undo deployment/frontend --to-revision=<revision>
+kubectl -n ticket-management rollout undo deployment/backend-py --to-revision=<revision>
+kubectl -n ticket-management rollout undo deployment/route-go --to-revision=<revision>
+kubectl -n ticket-management rollout status deployment/frontend --timeout=180s
+kubectl -n ticket-management rollout status deployment/backend-py --timeout=180s
+kubectl -n ticket-management rollout status deployment/route-go --timeout=180s
+```
+
+Run the smoke tests from a pod in the namespace after rollback, then open a follow-up pull request for the permanent fix. Do not delete the namespace during rollback because it removes the service history and configuration.

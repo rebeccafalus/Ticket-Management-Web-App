@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: ticket-management
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: ghcr.io/your-org/ticket-management-frontend:latest
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-py
+  namespace: ticket-management
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend-py
+  template:
+    metadata:
+      labels:
+        app: backend-py
+    spec:
+      containers:
+        - name: backend-py
+          image: ghcr.io/your-org/ticket-management-backend-py:latest
+          ports:
+            - containerPort: 8000
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: route-go
+  namespace: ticket-management
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: route-go
+  template:
+    metadata:
+      labels:
+        app: route-go
+    spec:
+      containers:
+        - name: route-go
+          image: ghcr.io/your-org/ticket-management-route-go:latest
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080

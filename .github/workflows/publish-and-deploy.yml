@@ -1,0 +1,144 @@
+name: Publish and deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+  security-events: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}/ticket-management
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set image tag
+        id: meta
+        run: echo "tag=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and publish frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-frontend:${{ steps.meta.outputs.tag }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-frontend:latest
+
+      - name: Build and publish Python API
+        uses: docker/build-push-action@v6
+        with:
+          context: backend-py
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-backend-py:${{ steps.meta.outputs.tag }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-backend-py:latest
+
+      - name: Build and publish Go route service
+        uses: docker/build-push-action@v6
+        with:
+          context: route-go
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-route-go:${{ steps.meta.outputs.tag }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-route-go:latest
+
+      - name: Scan published images with Trivy
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-frontend:${{ steps.meta.outputs.tag }}
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: Scan published API images with Trivy
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-backend-py:${{ steps.meta.outputs.tag }}
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: Scan published Go image with Trivy
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-route-go:${{ steps.meta.outputs.tag }}
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+
+  staging:
+    needs: publish
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Configure kubectl
+        uses: azure/k8s-set-context@v4
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG_STAGING }}
+
+      - name: Deploy to staging
+        env:
+          IMAGE_OWNER: ${{ github.repository_owner }}
+          IMAGE_TAG: ${{ needs.publish.outputs.tag }}
+        run: |
+          sed -i "s|your-org|${IMAGE_OWNER}|g; s|:latest|:${IMAGE_TAG}|g" infra/k8s/*.yaml
+          kubectl apply -f infra/k8s/namespace.yaml
+          kubectl apply -f infra/k8s/services.yaml -f infra/k8s/deployments.yaml
+          kubectl -n ticket-management rollout status deployment/frontend --timeout=180s
+          kubectl -n ticket-management rollout status deployment/backend-py --timeout=180s
+          kubectl -n ticket-management rollout status deployment/route-go --timeout=180s
+
+      - name: Run staging smoke and health tests
+        run: |
+          kubectl -n ticket-management run smoke-test --rm --restart=Never --image=curlimages/curl:8.10.1 -- \
+            sh -c 'curl --fail http://frontend/ && test "$(curl --fail --silent http://backend-py:8000/health)" = "{\"status\":\"ok\"}" && test "$(curl --fail --silent http://route-go:8080/health)" = "{\"status\":\"ok\"}"'
+
+  production:
+    needs: [publish, staging]
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Configure kubectl
+        uses: azure/k8s-set-context@v4
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG_PRODUCTION }}
+
+      - name: Deploy approved release to production
+        env:
+          IMAGE_OWNER: ${{ github.repository_owner }}
+          IMAGE_TAG: ${{ needs.publish.outputs.tag }}
+        run: |
+          sed -i "s|your-org|${IMAGE_OWNER}|g; s|:latest|:${IMAGE_TAG}|g" infra/k8s/*.yaml
+          kubectl apply -f infra/k8s/namespace.yaml
+          kubectl apply -f infra/k8s/services.yaml -f infra/k8s/deployments.yaml
+          kubectl -n ticket-management rollout status deployment/frontend --timeout=180s
+          kubectl -n ticket-management rollout status deployment/backend-py --timeout=180s
+          kubectl -n ticket-management rollout status deployment/route-go --timeout=180s

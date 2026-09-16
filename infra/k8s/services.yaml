@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: ticket-management
+spec:
+  selector:
+    app: frontend
+  ports:
+    - port: 80
+      targetPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-py
+  namespace: ticket-management
+spec:
+  selector:
+    app: backend-py
+  ports:
+    - port: 8000
+      targetPort: 8000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: route-go
+  namespace: ticket-management
+spec:
+  selector:
+    app: route-go
+  ports:
+    - port: 8080
+      targetPort: 8080
