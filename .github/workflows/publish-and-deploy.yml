@@ -62,7 +62,7 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-route-go:latest
 
       - name: Scan published images with Trivy
-        uses: aquasecurity/trivy-action@0.35.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-frontend:${{ steps.meta.outputs.tag }}
           severity: CRITICAL,HIGH
@@ -70,7 +70,7 @@ jobs:
           exit-code: "1"
 
       - name: Scan published API images with Trivy
-        uses: aquasecurity/trivy-action@0.35.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-backend-py:${{ steps.meta.outputs.tag }}
           severity: CRITICAL,HIGH
@@ -78,7 +78,7 @@ jobs:
           exit-code: "1"
 
       - name: Scan published Go image with Trivy
-        uses: aquasecurity/trivy-action@0.35.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-route-go:${{ steps.meta.outputs.tag }}
           severity: CRITICAL,HIGH
