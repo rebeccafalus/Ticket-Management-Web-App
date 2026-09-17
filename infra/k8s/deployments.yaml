@@ -59,6 +59,35 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: ml
+  namespace: ticket-management
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ml
+  template:
+    metadata:
+      labels:
+        app: ml
+    spec:
+      containers:
+        - name: ml
+          image: ghcr.io/your-org/ticket-management-ml:latest
+          ports:
+            - containerPort: 8001
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
   name: route-go
   namespace: ticket-management
 spec:

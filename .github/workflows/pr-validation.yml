@@ -42,6 +42,7 @@ jobs:
         run: |
           curl --fail --retry 10 --retry-delay 2 http://localhost:3000/
           test "$(curl --fail --silent http://localhost:8000/health)" = '{"status":"ok"}'
+          test "$(curl --fail --silent http://localhost:8001/health)" = '{"status":"ok"}'
           test "$(curl --fail --silent http://localhost:8080/health)" = '{"status":"ok"}'
 
       - name: Scan source with Trivy

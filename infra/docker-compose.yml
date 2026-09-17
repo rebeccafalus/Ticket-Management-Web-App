@@ -6,6 +6,7 @@ services:
       - "3000:80"
     depends_on:
       - backend-py
+      - ml
       - route-go
 
   backend-py:
@@ -13,6 +14,12 @@ services:
       context: ../backend-py
     ports:
       - "8000:8000"
+
+  ml:
+    build:
+      context: ../ml
+    ports:
+      - "8001:8001"
 
   route-go:
     build:

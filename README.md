@@ -4,6 +4,7 @@ This workspace is split into four repository areas:
 
 - `frontend/` - web client
 - `backend-py/` - Python API
+- `ml/` - ML service
 - `route-go/` - Go routing service
 - `infra/` - local service orchestration
 
@@ -41,6 +42,7 @@ The GitHub Actions workflows provide:
 - Required merge gates: configure `Pull request validation / validate` as a required status check in branch protection
 - Image publishing: immutable SHA tags and `latest` tags in GitHub Container Registry
 - Staging deployment: automatic deployment to Kubernetes after a successful `main` build, followed by rollout and smoke tests
+- Kubernetes workload: one frontend pod, one Python API pod, one ML pod, and one Go pod
 - Production deployment: paused behind the GitHub `production` Environment approval rule
 - Security scanning: Trivy filesystem and image scans on pull requests, releases, and every Monday at 03:30 UTC
 
@@ -51,7 +53,7 @@ Configure these repository settings before enabling deployments:
 3. Protect `main` and require the `Pull request validation / validate` check before merging.
 4. Grant the Actions workflow permission to write packages, and make the GHCR packages readable by the target clusters.
 
-Kubernetes manifests are in `infra/k8s/`. The deployment workflow replaces the placeholder registry owner and image tag before applying them.
+Kubernetes manifests are in `infra/k8s/`. The deployment workflow replaces the placeholder registry owner and image tag before applying them. The desired workload is exactly four pods: `frontend`, `backend-py`, `ml`, and `route-go`, each with one replica.
 
 ## Rollback
 
@@ -61,9 +63,11 @@ Every deployment uses an immutable commit SHA image tag. To roll back a failed s
 kubectl -n ticket-management rollout history deployment/frontend
 kubectl -n ticket-management rollout undo deployment/frontend --to-revision=<revision>
 kubectl -n ticket-management rollout undo deployment/backend-py --to-revision=<revision>
+kubectl -n ticket-management rollout undo deployment/ml --to-revision=<revision>
 kubectl -n ticket-management rollout undo deployment/route-go --to-revision=<revision>
 kubectl -n ticket-management rollout status deployment/frontend --timeout=180s
 kubectl -n ticket-management rollout status deployment/backend-py --timeout=180s
+kubectl -n ticket-management rollout status deployment/ml --timeout=180s
 kubectl -n ticket-management rollout status deployment/route-go --timeout=180s
 ```
 
