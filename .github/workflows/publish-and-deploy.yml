@@ -123,11 +123,12 @@ jobs:
         run: |
           sed -i "s|your-org|${IMAGE_OWNER}|g; s|:latest|:${IMAGE_TAG}|g" infra/k8s/*.yaml
           kubectl apply -f infra/k8s/namespace.yaml
-          kubectl apply -f infra/k8s/services.yaml -f infra/k8s/deployments.yaml
+          kubectl apply -f infra/k8s/services.yaml -f infra/k8s/deployments.yaml -f infra/k8s/postgres.yaml
           kubectl -n ticket-management rollout status deployment/frontend --timeout=180s
           kubectl -n ticket-management rollout status deployment/backend-py --timeout=180s
           kubectl -n ticket-management rollout status deployment/ml --timeout=180s
           kubectl -n ticket-management rollout status deployment/route-go --timeout=180s
+          kubectl -n ticket-management rollout status statefulset/postgres --timeout=180s
 
       - name: Run staging smoke and health tests
         run: |
@@ -156,8 +157,9 @@ jobs:
         run: |
           sed -i "s|your-org|${IMAGE_OWNER}|g; s|:latest|:${IMAGE_TAG}|g" infra/k8s/*.yaml
           kubectl apply -f infra/k8s/namespace.yaml
-          kubectl apply -f infra/k8s/services.yaml -f infra/k8s/deployments.yaml
+          kubectl apply -f infra/k8s/services.yaml -f infra/k8s/deployments.yaml -f infra/k8s/postgres.yaml
           kubectl -n ticket-management rollout status deployment/frontend --timeout=180s
           kubectl -n ticket-management rollout status deployment/backend-py --timeout=180s
           kubectl -n ticket-management rollout status deployment/ml --timeout=180s
           kubectl -n ticket-management rollout status deployment/route-go --timeout=180s
+          kubectl -n ticket-management rollout status statefulset/postgres --timeout=180s

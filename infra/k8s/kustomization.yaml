@@ -5,6 +5,7 @@ resources:
   - namespace.yaml
   - services.yaml
   - deployments.yaml
+  - postgres.yaml
 
 images:
   - name: ghcr.io/your-org/ticket-management-frontend
