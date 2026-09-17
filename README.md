@@ -56,6 +56,8 @@ Configure these repository settings before enabling deployments:
 
 Kubernetes manifests are in `infra/k8s/`. The deployment workflow replaces the placeholder registry owner and image tag before applying them. The desired workload is five pods: `frontend`, `backend-py`, `ml`, `route-go`, and `postgres`, each with one replica.
 
+Azure AKS and managed PostgreSQL provisioning is documented in [infra/terraform/README.md](infra/terraform/README.md). In Azure, PostgreSQL is managed outside Kubernetes, so deploy only the four application workloads and do not apply the local PostgreSQL StatefulSet.
+
 ## Rollback
 
 Every deployment uses an immutable commit SHA image tag. To roll back a failed staging or production release, identify the previous revision and run:
