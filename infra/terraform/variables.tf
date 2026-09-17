@@ -4,9 +4,9 @@ variable "subscription_id" {
 }
 
 variable "location" {
-  description = "Azure region for the deployment."
+  description = "Azure region for the deployment. West Central US is enabled for this subscription's AKS and PostgreSQL services."
   type        = string
-  default     = "East US"
+  default     = "West Central US"
 }
 
 variable "project_name" {
@@ -34,9 +34,9 @@ variable "node_count" {
 }
 
 variable "node_vm_size" {
-  description = "VM size for the AKS node pool."
+  description = "VM size for the AKS node pool. This size is available in West Central US for this subscription."
   type        = string
-  default     = "Standard_DS2_v2"
+  default     = "Standard_D2as_v5"
 }
 
 variable "postgres_admin_password" {

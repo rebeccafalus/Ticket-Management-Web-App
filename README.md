@@ -58,6 +58,14 @@ Kubernetes manifests are in `infra/k8s/`. The deployment workflow replaces the p
 
 Azure AKS and managed PostgreSQL provisioning is documented in [infra/terraform/README.md](infra/terraform/README.md). In Azure, PostgreSQL is managed outside Kubernetes, so deploy only the four application workloads and do not apply the local PostgreSQL StatefulSet.
 
+The Terraform deployment defaults to West Central US because this subscription
+has PostgreSQL provisioning restrictions in East US.
+
+If the existing East US resource group must be preserved, use the separate
+`staging-west` Terraform workspace described in
+[infra/terraform/README.md](infra/terraform/README.md) rather than applying
+the replacement plan from the `default` workspace.
+
 ## Rollback
 
 Every deployment uses an immutable commit SHA image tag. To roll back a failed staging or production release, identify the previous revision and run:

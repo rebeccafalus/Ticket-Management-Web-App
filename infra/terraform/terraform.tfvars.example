@@ -1,7 +1,7 @@
 subscription_id         = "00000000-0000-0000-0000-000000000000"
-location                = "East US"
+location                = "West Central US"
 project_name            = "ticket-management"
 environment             = "staging"
 node_count              = 2
-node_vm_size            = "Standard_DS2_v2"
+node_vm_size            = "Standard_D2as_v5"
 postgres_admin_password = "replace-with-a-secret-at-least-12-chars"

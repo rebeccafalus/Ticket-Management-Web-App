@@ -8,6 +8,11 @@ This Terraform configuration provisions:
 - A private Azure Database for PostgreSQL Flexible Server with a `tickets` database
 - Private DNS for PostgreSQL; storage defaults to the configured `postgres_storage_mb` value (32 GiB by default)
 
+The default region is **West Central US** (`westcentralus`). This subscription
+reported PostgreSQL provisioning restrictions in East US and rejected the
+original `Standard_DS2_v2` AKS size. West Central US supports PostgreSQL 16
+with `B_Standard_B1ms` and the default AKS size `Standard_D2as_v5`.
+
 ## Prerequisites
 
 Install Terraform, Azure CLI, and kubectl. Authenticate and select a subscription:
@@ -32,9 +37,59 @@ cd infra/terraform
 terraform init
 terraform fmt -check
 terraform validate
+rm -f tfplan
 terraform plan -out=tfplan
 terraform apply tfplan
 ```
+
+Because the earlier failed attempt created the East US resource group and
+network, changing the region causes Terraform to replace those resources in
+the plan. Review the destroy/create actions carefully before applying. The
+failed AKS and PostgreSQL resources were not created.
+
+## Preserve the East US resources
+
+Do not apply that replacement plan if the existing East US resource group must
+remain. Azure resource groups cannot be moved between regions, and Terraform
+will otherwise try to destroy the East US resources before recreating them.
+
+Create the West Central deployment in a separate Terraform workspace and give
+it a different environment suffix. This preserves the existing default
+workspace and its East US state:
+
+```bash
+cd /workspaces/Ticket-Management-Web-App/infra/terraform
+
+terraform workspace select default
+terraform state pull > eastus-state-backup.json
+
+terraform workspace new staging-west
+terraform plan \
+  -var='environment=staging-west' \
+  -out=staging-west.tfplan
+terraform apply staging-west.tfplan
+```
+
+The new resources will be named with the `staging-west` suffix, for example:
+`rg-ticket-management-staging-west`, `aks-ticket-management-staging-west`,
+and `psql-ticketmanagementstagingwest`. The original
+`rg-ticket-management-staging` resource group remains intact.
+
+After applying, use the West workspace for outputs and AKS credentials:
+
+```bash
+terraform workspace select staging-west
+az aks get-credentials \
+  --resource-group "$(terraform output -raw resource_group_name)" \
+  --name "$(terraform output -raw aks_cluster_name)" \
+  --overwrite-existing
+kubectl config current-context
+kubectl get nodes
+```
+
+Do not run `terraform apply` from the `default` workspace with the current
+West Central variables; that workspace still manages the East US resources
+and will plan their replacement. Do not commit `eastus-state-backup.json`.
 
 Retrieve AKS credentials:
 

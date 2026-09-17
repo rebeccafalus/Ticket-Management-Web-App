@@ -3,5 +3,7 @@
 *.tfstate.*
 *.tfplan
 terraform.tfvars
+*-state-backup.json
+*.save
 crash.log
 crash.*.log

@@ -35,6 +35,10 @@ resource "azurerm_subnet" "postgres" {
   virtual_network_name = azurerm_virtual_network.main.name
   address_prefixes     = ["10.50.2.0/28"]
 
+  lifecycle {
+    ignore_changes = [service_endpoints]
+  }
+
   delegation {
     name = "postgres-flexible-server"
 
@@ -65,6 +69,7 @@ resource "azurerm_kubernetes_cluster" "main" {
   name                = "aks-${local.name_prefix}"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
+  node_resource_group = "mc-${var.project_name}-${var.environment}"
   dns_prefix          = "aks-${var.project_name}-${var.environment}"
   kubernetes_version  = var.kubernetes_version
 
