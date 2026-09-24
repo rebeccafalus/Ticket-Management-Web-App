@@ -1,9 +1,14 @@
-FROM golang:1.22 AS build
-WORKDIR /src
-COPY go.mod main.go ./
-RUN CGO_ENABLED=0 go build -o /route-go .
+FROM golang:1.27-bookworm AS builder
 
-FROM gcr.io/distroless/static-debian12
-COPY --from=build /route-go /route-go
-EXPOSE 8080
+WORKDIR /src
+COPY go.mod ./
+RUN go mod download
+
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -o /out/route-go .
+
+FROM gcr.io/distroless/static-debian12:nonroot
+COPY --from=builder /out/route-go /route-go
+
+USER nonroot:nonroot
 ENTRYPOINT ["/route-go"]
