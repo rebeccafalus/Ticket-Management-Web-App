@@ -1,6 +1,6 @@
 FROM nginx:1.29.3-alpine3.22
 
-RUN apk add --no-cache --upgrade zlib
+RUN apk upgrade --no-cache
 
 COPY index.html /usr/share/nginx/html/index.html
 
