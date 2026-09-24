@@ -149,9 +149,19 @@ jobs:
 
       - name: Run staging smoke and health tests
         run: |
-          kubectl -n ticket-management run smoke-test --rm --restart=Never --image=curlimages/curl:8.10.1 -- \
-            sh -c 'curl --fail http://frontend/ && test "$(curl --fail --silent http://backend-py:8000/health)" = "{\"status\":\"ok\"}" && test "$(curl --fail --silent http://ml:8001/health)" = "{\"status\":\"ok\"}" && test "$(curl --fail --silent http://route-go:8080/health)" = "{\"status\":\"ok\"}"'
-
+          kubectl -n ticket-management run smoke-test \
+            --rm \
+            --attach \
+            --restart=Never \
+            --image=curlimages/curl:8.10.1 \
+            -- \
+            sh -c '
+              set -eu
+              curl --fail --silent --show-error http://frontend/
+              test "$(curl --fail --silent --show-error http://backend-py:8000/health)" = "{\"status\":\"ok\"}"
+              test "$(curl --fail --silent --show-error http://ml:8001/health)" = "{\"status\":\"ok\"}"
+              test "$(curl --fail --silent --show-error http://route-go:8080/health)" = "{\"status\":\"ok\"}"
+            '
   production:
     needs: [publish, staging]
     runs-on: ubuntu-latest
