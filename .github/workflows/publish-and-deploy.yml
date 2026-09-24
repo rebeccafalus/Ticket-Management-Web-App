@@ -141,7 +141,9 @@ jobs:
         run: |
           sed -i "s|your-org|${IMAGE_OWNER}|g; s|:latest|:${IMAGE_TAG}|g" infra/k8s/*.yaml
           kubectl apply -f infra/k8s/namespace.yaml
-          kubectl apply -f infra/k8s/services.yaml -f infra/k8s/deployments.yaml
+          kubectl apply -f infra/k8s/route-go-auth-secret.yaml
+          kubectl apply -f infra/k8s/services.yaml
+          kubectl apply -f infra/k8s/deployments.yaml
           kubectl -n ticket-management rollout status deployment/frontend --timeout=180s
           kubectl -n ticket-management rollout status deployment/backend-py --timeout=180s
           kubectl -n ticket-management rollout status deployment/ml --timeout=180s
@@ -149,8 +151,21 @@ jobs:
 
       - name: Run staging smoke and health tests
         run: |
-          kubectl -n ticket-management run smoke-test --rm --restart=Never --image=curlimages/curl:8.10.1 -- \
-            sh -c 'curl --fail http://frontend/ && test "$(curl --fail --silent http://backend-py:8000/health)" = "{\"status\":\"ok\"}" && test "$(curl --fail --silent http://ml:8001/health)" = "{\"status\":\"ok\"}" && test "$(curl --fail --silent http://route-go:8080/health)" = "{\"status\":\"ok\"}"'
+          - name: Run staging smoke and health tests
+  run: |
+    kubectl -n ticket-management run smoke-test \
+      --rm \
+      --attach \
+      --restart=Never \
+      --image=curlimages/curl:8.10.1 \
+      -- \
+      sh -c '
+        set -eu
+        curl --fail --silent --show-error http://frontend/
+        test "$(curl --fail --silent --show-error http://backend-py:8000/health)" = "{\"status\":\"ok\"}"
+        test "$(curl --fail --silent --show-error http://ml:8001/health)" = "{\"status\":\"ok\"}"
+        test "$(curl --fail --silent --show-error http://route-go:8080/health)" = "{\"status\":\"ok\"}"
+      '
 
   production:
     needs: [publish, staging]
