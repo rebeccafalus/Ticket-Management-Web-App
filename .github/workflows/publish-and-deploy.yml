@@ -19,6 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.meta.outputs.tag }}
+
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -70,7 +71,7 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-ml:${{ steps.meta.outputs.tag }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-ml:latest
 
-      - name: Scan published images with Trivy
+      - name: Scan published frontend image with Trivy
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-frontend:${{ steps.meta.outputs.tag }}
@@ -78,7 +79,7 @@ jobs:
           ignore-unfixed: true
           exit-code: "1"
 
-      - name: Scan published API images with Trivy
+      - name: Scan published backend image with Trivy
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-backend-py:${{ steps.meta.outputs.tag }}
@@ -108,6 +109,7 @@ jobs:
     needs: publish
     runs-on: ubuntu-latest
     environment: staging
+
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -123,6 +125,7 @@ jobs:
 
           kubeconfig="$RUNNER_TEMP/staging-kubeconfig"
           printf '%s' "$KUBE_CONFIG_STAGING" > "$kubeconfig"
+
           if ! kubectl config view --kubeconfig "$kubeconfig" --raw >/dev/null; then
             echo "::error::KUBE_CONFIG_STAGING is not valid kubeconfig YAML"
             exit 1
@@ -139,11 +142,15 @@ jobs:
           IMAGE_OWNER: ${{ github.repository_owner }}
           IMAGE_TAG: ${{ needs.publish.outputs.tag }}
         run: |
+          set -e
+
           sed -i "s|your-org|${IMAGE_OWNER}|g; s|:latest|:${IMAGE_TAG}|g" infra/k8s/*.yaml
+
           kubectl apply -f infra/k8s/namespace.yaml
           kubectl apply -f infra/k8s/route-go-auth-secret.yaml
           kubectl apply -f infra/k8s/services.yaml
           kubectl apply -f infra/k8s/deployments.yaml
+
           kubectl -n ticket-management rollout status deployment/frontend --timeout=180s
           kubectl -n ticket-management rollout status deployment/backend-py --timeout=180s
           kubectl -n ticket-management rollout status deployment/ml --timeout=180s
@@ -151,27 +158,31 @@ jobs:
 
       - name: Run staging smoke and health tests
         run: |
-          - name: Run staging smoke and health tests
-  run: |
-    kubectl -n ticket-management run smoke-test \
-      --rm \
-      --attach \
-      --restart=Never \
-      --image=curlimages/curl:8.10.1 \
-      -- \
-      sh -c '
-        set -eu
-        curl --fail --silent --show-error http://frontend/
-        test "$(curl --fail --silent --show-error http://backend-py:8000/health)" = "{\"status\":\"ok\"}"
-        test "$(curl --fail --silent --show-error http://ml:8001/health)" = "{\"status\":\"ok\"}"
-        test "$(curl --fail --silent --show-error http://route-go:8080/health)" = "{\"status\":\"ok\"}"
-      '
+          kubectl -n ticket-management run smoke-test \
+            --rm \
+            --attach \
+            --restart=Never \
+            --image=curlimages/curl:8.10.1 \
+            -- \
+            sh -c '
+              set -eu
+
+              curl --fail --silent --show-error http://frontend/
+
+              test "$(curl --fail --silent --show-error http://backend-py:8000/health)" = "{\"status\":\"ok\"}"
+
+              test "$(curl --fail --silent --show-error http://ml:8001/health)" = "{\"status\":\"ok\"}"
+
+              test "$(curl --fail --silent --show-error http://route-go:8080/health)" = "{\"status\":\"ok\"}"
+            '
 
   production:
     needs: [publish, staging]
     runs-on: ubuntu-latest
+
     environment:
       name: production
+
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -196,9 +207,15 @@ jobs:
           IMAGE_OWNER: ${{ github.repository_owner }}
           IMAGE_TAG: ${{ needs.publish.outputs.tag }}
         run: |
+          set -e
+
           sed -i "s|your-org|${IMAGE_OWNER}|g; s|:latest|:${IMAGE_TAG}|g" infra/k8s/*.yaml
+
           kubectl apply -f infra/k8s/namespace.yaml
-          kubectl apply -f infra/k8s/services.yaml -f infra/k8s/deployments.yaml
+          kubectl apply -f infra/k8s/route-go-auth-secret.yaml
+          kubectl apply -f infra/k8s/services.yaml
+          kubectl apply -f infra/k8s/deployments.yaml
+
           kubectl -n ticket-management rollout status deployment/frontend --timeout=180s
           kubectl -n ticket-management rollout status deployment/backend-py --timeout=180s
           kubectl -n ticket-management rollout status deployment/ml --timeout=180s
