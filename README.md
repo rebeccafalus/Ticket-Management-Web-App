@@ -77,7 +77,7 @@ The GitHub Actions workflows provide:
 Configure these repository settings before enabling deployments:
 
 1. Create `staging` and `production` GitHub Environments.
-2. Add `KUBE_CONFIG_STAGING` and `KUBE_CONFIG_PRODUCTION` as environment secrets containing base64 kubeconfig values. Add required reviewers to `production`.
+2. Add `KUBE_CONFIG_STAGING` to the `staging` environment and `KUBE_CONFIG_PRODUCTION` to the `production` environment. Each secret must contain the complete raw kubeconfig file, including its `apiVersion`, `clusters`, `users`, and `contexts` sections. Add required reviewers to `production`.
 3. Protect `main` and require the `Pull request validation / validate` check before merging.
 4. Grant the Actions workflow permission to write packages, and make the GHCR packages readable by the target clusters.
 

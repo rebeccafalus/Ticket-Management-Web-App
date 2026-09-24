@@ -112,6 +112,15 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
+      - name: Verify staging kubeconfig is configured
+        env:
+          KUBE_CONFIG_STAGING: ${{ secrets.KUBE_CONFIG_STAGING }}
+        run: |
+          if [ -z "$KUBE_CONFIG_STAGING" ]; then
+            echo "::error::KUBE_CONFIG_STAGING is missing from the staging environment"
+            exit 1
+          fi
+
       - name: Configure kubectl
         uses: azure/k8s-set-context@v4
         with:
@@ -144,6 +153,15 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+
+      - name: Verify production kubeconfig is configured
+        env:
+          KUBE_CONFIG_PRODUCTION: ${{ secrets.KUBE_CONFIG_PRODUCTION }}
+        run: |
+          if [ -z "$KUBE_CONFIG_PRODUCTION" ]; then
+            echo "::error::KUBE_CONFIG_PRODUCTION is missing from the production environment"
+            exit 1
+          fi
 
       - name: Configure kubectl
         uses: azure/k8s-set-context@v4
