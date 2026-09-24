@@ -26,6 +26,33 @@ curl http://localhost:8080/health
 
 Both endpoints return `{"status":"ok"}`.
 
+## Prometheus monitoring
+
+The Go routing service exposes Prometheus metrics at `/metrics`. The local
+Compose stack starts Prometheus on [http://localhost:9090](http://localhost:9090)
+and scrapes `route-go:8080/metrics` every 15 seconds:
+
+```bash
+docker compose -f infra/docker-compose.yml up --build
+```
+
+The Kubernetes manifests include a Prometheus deployment and service in the
+`ticket-management` namespace. Access it locally with:
+
+```bash
+kubectl -n ticket-management port-forward service/prometheus 9090:9090
+```
+
+The ticket guide is protected by a session-based sign-in. For now, any
+username containing `@un.org` is accepted. Configure `TICKET_PASSWORD` on the
+Go service; the local Compose default is `ticket-management-dev`, which should
+be replaced before sharing the service. Kubernetes reads the password from the
+`route-go-auth` Secret in `infra/k8s/route-go-auth.yaml`.
+
+An analytics dashboard is available at `/admin`. Sign in with username `adm`
+and password `placeholder` to view guide request totals, service status, and
+the Prometheus metrics link.
+
 ## Docker Compose
 
 From the repository root:

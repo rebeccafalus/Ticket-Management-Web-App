@@ -6,6 +6,8 @@ resources:
   - services.yaml
   - deployments.yaml
   - postgres.yaml
+  - prometheus.yaml
+  - route-go-auth.yaml
 
 images:
   - name: ghcr.io/your-org/ticket-management-frontend

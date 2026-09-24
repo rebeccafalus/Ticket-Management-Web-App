@@ -26,6 +26,15 @@ spec:
             httpGet:
               path: /
               port: 80
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -55,6 +64,15 @@ spec:
             httpGet:
               path: /health
               port: 8000
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -84,6 +102,15 @@ spec:
             httpGet:
               path: /health
               port: 8001
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -103,6 +130,9 @@ spec:
       containers:
         - name: route-go
           image: ghcr.io/your-org/ticket-management-route-go:latest
+          envFrom:
+            - secretRef:
+                name: route-go-auth
           ports:
             - containerPort: 8080
           readinessProbe:
@@ -113,3 +143,12 @@ spec:
             httpGet:
               path: /health
               port: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault

@@ -27,6 +27,12 @@ variable "kubernetes_version" {
   default     = null
 }
 
+variable "api_server_authorized_ip_ranges" {
+  description = "CIDR ranges allowed to access the AKS API server."
+  type        = list(string)
+  default     = []
+}
+
 variable "node_count" {
   description = "Initial number of AKS system nodes."
   type        = number
@@ -61,3 +67,6 @@ variable "postgres_storage_mb" {
   type        = number
   default     = 32768
 }
+
+tfplan
+*.tfvars.save*

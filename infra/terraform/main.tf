@@ -96,6 +96,10 @@ resource "azurerm_kubernetes_cluster" "main" {
   oidc_issuer_enabled               = true
   workload_identity_enabled         = true
   tags                              = local.common_tags
+
+  api_server_access_profile {
+    authorized_ip_ranges = var.api_server_authorized_ip_ranges
+  }
 }
 
 resource "azurerm_postgresql_flexible_server" "main" {

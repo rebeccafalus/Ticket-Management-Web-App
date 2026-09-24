@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: route-go-auth
+  namespace: ticket-management
+type: Opaque
+stringData:
+  TICKET_PASSWORD: change-this-password

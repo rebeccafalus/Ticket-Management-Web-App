@@ -26,6 +26,21 @@ services:
       context: ../route-go
     ports:
       - "8080:8080"
+    environment:
+      TICKET_PASSWORD: ticket-management-dev
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+    depends_on:
+      - route-go
 
   postgres:
     image: postgres:16-alpine
@@ -40,3 +55,4 @@ services:
 
 volumes:
   postgres-data:
+  prometheus-data:
