@@ -5,6 +5,7 @@ metadata:
   namespace: ticket-management
 spec:
   replicas: 1
+  progressDeadlineSeconds: 300
   selector:
     matchLabels:
       app: frontend
@@ -22,10 +23,14 @@ spec:
             httpGet:
               path: /
               port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
           livenessProbe:
             httpGet:
               path: /
               port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 10
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -33,8 +38,8 @@ spec:
               drop:
                 - ALL
             runAsNonRoot: true
-            runAsUser: 101
-            runAsGroup: 101
+            runAsUser: 1000
+            runAsGroup: 1000
             seccompProfile:
               type: RuntimeDefault
 ---
