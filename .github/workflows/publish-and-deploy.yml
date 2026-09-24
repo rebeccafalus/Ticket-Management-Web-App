@@ -121,6 +121,13 @@ jobs:
             exit 1
           fi
 
+          kubeconfig="$RUNNER_TEMP/staging-kubeconfig"
+          printf '%s' "$KUBE_CONFIG_STAGING" > "$kubeconfig"
+          if ! kubectl config view --kubeconfig "$kubeconfig" --raw >/dev/null; then
+            echo "::error::KUBE_CONFIG_STAGING is not valid kubeconfig YAML"
+            exit 1
+          fi
+
       - name: Configure kubectl
         uses: azure/k8s-set-context@v4
         with:
