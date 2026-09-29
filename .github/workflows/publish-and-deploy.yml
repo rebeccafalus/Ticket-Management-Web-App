@@ -141,6 +141,10 @@ jobs:
         run: |
           sed -i "s|your-org|${IMAGE_OWNER}|g; s|:latest|:${IMAGE_TAG}|g" infra/k8s/*.yaml
           kubectl apply -f infra/k8s/namespace.yaml
+          kubectl -n ticket-management get secret route-go-auth >/dev/null || {
+            echo "::error::Provision route-go-auth from the staging secret manager before deployment"
+            exit 1
+          }
           kubectl apply -f infra/k8s/services.yaml -f infra/k8s/deployments.yaml
           kubectl -n ticket-management rollout status deployment/frontend --timeout=180s
           kubectl -n ticket-management rollout status deployment/backend-py --timeout=180s
@@ -152,16 +156,66 @@ jobs:
           kubectl -n ticket-management run smoke-test \
             --rm \
             --attach \
+            -i \
             --restart=Never \
-            --image=curlimages/curl:8.10.1 \
+            --image=python:3.12-slim \
             -- \
-            sh -c '
-              set -eu
-              curl --fail --silent --show-error http://frontend/
-              test "$(curl --fail --silent --show-error http://backend-py:8000/health)" = "{\"status\":\"ok\"}"
-              test "$(curl --fail --silent --show-error http://ml:8001/health)" = "{\"status\":\"ok\"}"
-              test "$(curl --fail --silent --show-error http://route-go:8080/health)" = "{\"status\":\"ok\"}"
-            '
+            python - <<'PY'
+          import json
+          from urllib.request import Request, urlopen
+
+          def get(url):
+            with urlopen(url, timeout=10) as response:
+              return json.loads(response.read())
+
+          def send(url, payload, method="POST"):
+            request = Request(
+              url,
+              data=json.dumps(payload).encode(),
+              headers={"Content-Type": "application/json"},
+              method=method,
+            )
+            with urlopen(request, timeout=10) as response:
+              return json.loads(response.read())
+
+          with urlopen("http://frontend/", timeout=10) as response:
+            assert response.status == 200
+            assert b"switchboard" in response.read().lower()
+          assert get("http://backend-py:8000/health")["status"] == "ok"
+          assert get("http://ml:8001/health")["status"] == "ok"
+          assert get("http://route-go:8080/health")["status"] == "ok"
+          assert get("http://ml:8001/analysis")["holdout"]["examples"] == 10
+
+          ticket = send("http://frontend/api/tickets", {
+            "name": "Staging Smoke",
+            "email": "staging-smoke@example.com",
+            "subject": "VPN connection drops",
+            "priority": "Low",
+            "description": "The office network VPN disconnects during calls.",
+          })
+          assert ticket["category"] == "Network", ticket
+          assert ticket["predictedCategory"] == "Network", ticket
+          assert ticket["predictionConfidence"] is not None, ticket
+          ticket_url = f"http://frontend/api/tickets/{ticket['id']}"
+          persisted = get(ticket_url)
+          assert persisted["predictedCategory"] == "Network", persisted
+
+          corrected = send(ticket_url, {
+            "category": "Hardware",
+            "status": "In progress",
+            "assignee": "Alex Chen",
+          }, method="PATCH")
+          assert corrected["category"] == "Hardware", corrected
+          assert corrected["categoryCorrectedAt"], corrected
+          updated = get(ticket_url)
+          assert updated["category"] == "Hardware", updated
+          assert updated["predictedCategory"] == "Network", updated
+          assert updated["status"] == "In progress", updated
+          assert updated["assignee"] == "Alex Chen", updated
+          analytics = get("http://frontend/api/analytics")
+          assert analytics["reviewedPredictions"] >= 1, analytics
+          assert analytics["categoryCorrections"] >= 1, analytics
+          PY
   production:
     needs: [publish, staging]
     runs-on: ubuntu-latest
@@ -193,6 +247,10 @@ jobs:
         run: |
           sed -i "s|your-org|${IMAGE_OWNER}|g; s|:latest|:${IMAGE_TAG}|g" infra/k8s/*.yaml
           kubectl apply -f infra/k8s/namespace.yaml
+          kubectl -n ticket-management get secret route-go-auth >/dev/null || {
+            echo "::error::Provision route-go-auth from the production secret manager before deployment"
+            exit 1
+          }
           kubectl apply -f infra/k8s/services.yaml -f infra/k8s/deployments.yaml
           kubectl -n ticket-management rollout status deployment/frontend --timeout=180s
           kubectl -n ticket-management rollout status deployment/backend-py --timeout=180s

@@ -14,6 +14,13 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
+      - name: Generate ephemeral Go service credentials
+        run: |
+          printf 'TICKET_USERNAME=ci-ticket-%s\n' "$GITHUB_RUN_ID" >> "$GITHUB_ENV"
+          printf 'TICKET_PASSWORD=%s\n' "$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          printf 'ADMIN_USERNAME=ci-admin-%s\n' "$GITHUB_RUN_ID" >> "$GITHUB_ENV"
+          printf 'ADMIN_PASSWORD=%s\n' "$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -60,12 +67,12 @@ jobs:
             -d '{"name":"CI Smoke","email":"ci@example.com","subject":"VPN connection drops","priority":"Low","description":"The office network VPN disconnects during calls."}' \
             http://localhost:3000/api/tickets | python -c 'import json,sys; print(json.load(sys.stdin)["id"])')
           test -n "$ticket_id"
-          category=$(curl --fail --silent --show-error "http://localhost:3000/api/tickets/$ticket_id" | python -c 'import json,sys; print(json.load(sys.stdin)["predictedCategory"])')
-          test "$category" = 'Network'
-          curl --fail --silent --show-error -X PATCH \
+          curl --fail --silent --show-error "http://localhost:3000/api/tickets/$ticket_id" | python -c 'import json,sys; ticket=json.load(sys.stdin); assert ticket["subject"] == "VPN connection drops", ticket; assert ticket["category"] == "Network", ticket; assert ticket["predictedCategory"] == "Network", ticket; assert ticket["predictionConfidence"] is not None, ticket'
+          corrected=$(curl --fail --silent --show-error -X PATCH \
             -H 'Content-Type: application/json' \
-            -d "{\"category\":\"$category\"}" \
-            "http://localhost:3000/api/tickets/$ticket_id" > /dev/null
+            -d '{"category":"Hardware"}' \
+            "http://localhost:3000/api/tickets/$ticket_id")
+          printf '%s' "$corrected" | python -c 'import json,sys; ticket=json.load(sys.stdin); assert ticket["category"] == "Hardware", ticket; assert ticket["predictedCategory"] == "Network", ticket; assert ticket["categoryCorrectedAt"], ticket'
           reviewed=$(curl --fail --silent --show-error http://localhost:3000/api/analytics | python -c 'import json,sys; print(json.load(sys.stdin)["reviewedPredictions"])')
           test "$reviewed" -ge 1
           updated_status=$(curl --fail --silent --show-error -X PATCH \
@@ -73,6 +80,7 @@ jobs:
             -d '{"status":"In progress","assignee":"Alex Chen"}' \
             "http://localhost:3000/api/tickets/$ticket_id" | python -c 'import json,sys; print(json.load(sys.stdin)["status"])')
           test "$updated_status" = 'In progress'
+          curl --fail --silent --show-error "http://localhost:3000/api/tickets/$ticket_id" | python -c 'import json,sys; ticket=json.load(sys.stdin); assert ticket["status"] == "In progress", ticket; assert ticket["assignee"] == "Alex Chen", ticket; assert ticket["category"] == "Hardware", ticket; assert ticket["predictedCategory"] == "Network", ticket'
 
       - name: Scan source with Trivy
         uses: aquasecurity/trivy-action@v0.36.0

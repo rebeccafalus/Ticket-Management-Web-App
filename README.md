@@ -14,8 +14,15 @@ Start the local stack, including PostgreSQL. The backend waits for the database,
 applies pending Alembic migrations, and then starts the API:
 
 ```bash
+export TICKET_USERNAME="technician"
+export TICKET_PASSWORD="$(openssl rand -hex 32)"
+export ADMIN_USERNAME="operations-admin"
+export ADMIN_PASSWORD="$(openssl rand -hex 32)"
 docker compose -f infra/docker-compose.yml up --build
 ```
+
+Keep the generated passwords private and separate. Compose refuses to start the
+Go service if any credential is missing, too short, or reused.
 
 For a standalone backend, install the backend requirements, configure the
 `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, and
@@ -93,15 +100,16 @@ The Kubernetes manifests include a Prometheus deployment and service in the
 kubectl -n ticket-management port-forward service/prometheus 9090:9090
 ```
 
-The ticket guide is protected by a session-based sign-in. For now, any
-username containing `@un.org` is accepted. Configure `TICKET_PASSWORD` on the
-Go service; the local Compose default is `ticket-management-dev`, which should
-be replaced before sharing the service. Kubernetes reads the password from the
-`route-go-auth` Secret in `infra/k8s/route-go-auth.yaml`.
+The ticket guide and analytics dashboard use separate, exact username/password
+credentials supplied through `TICKET_USERNAME`, `TICKET_PASSWORD`,
+`ADMIN_USERNAME`, and `ADMIN_PASSWORD`. The Go service refuses to start if any
+credential is missing, either password is shorter than 32 characters, or the
+passwords are the same. For local Compose, set these variables before starting
+the stack; generate distinct passwords with `openssl rand -hex 32`.
 
-An analytics dashboard is available at `/admin`. Sign in with username `adm`
-and password `placeholder` to view guide request totals, service status, and
-the Prometheus metrics link.
+An analytics dashboard is available at `/admin` and uses the separate admin
+credentials. Kubernetes credentials are provisioned as the `route-go-auth`
+Secret outside the repository; see [infra/k8s/README.md](infra/k8s/README.md).
 
 ## Docker Compose
 
@@ -132,6 +140,12 @@ Configure these repository settings before enabling deployments:
 4. Grant the Actions workflow permission to write packages, and make the GHCR packages readable by the target clusters.
 
 Kubernetes manifests are in `infra/k8s/`. The deployment workflow replaces the placeholder registry owner and image tag before applying them. The desired workload is five pods: `frontend`, `backend-py`, `ml`, `route-go`, and `postgres`, each with one replica.
+
+The Kubernetes frontend remains internal because the technician queue has no
+sign-in; operators can access it with the `kubectl port-forward` command in
+[infra/k8s/README.md](infra/k8s/README.md). The staging deployment smoke test
+submits a ticket through the frontend, reads it back, corrects its category,
+updates technician assignment and status, and verifies the persisted values.
 
 Azure AKS and managed PostgreSQL provisioning is documented in [infra/terraform/README.md](infra/terraform/README.md). In Azure, PostgreSQL is managed outside Kubernetes, so deploy only the four application workloads and do not apply the local PostgreSQL StatefulSet.
 

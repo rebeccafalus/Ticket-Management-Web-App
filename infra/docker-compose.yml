@@ -45,7 +45,10 @@ services:
     ports:
       - "8080:8080"
     environment:
-      TICKET_PASSWORD: ticket-management-dev
+      TICKET_USERNAME: "${TICKET_USERNAME:?Set TICKET_USERNAME in the environment}"
+      TICKET_PASSWORD: "${TICKET_PASSWORD:?Set TICKET_PASSWORD in the environment}"
+      ADMIN_USERNAME: "${ADMIN_USERNAME:?Set ADMIN_USERNAME in the environment}"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in the environment}"
 
   prometheus:
     image: prom/prometheus:v3.5.0

@@ -58,26 +58,55 @@ var ticketCatalog = []option{
 var guideRequests uint64
 
 type authStore struct {
+	username string
 	password string
 	sessions map[string]time.Time
 	mu       sync.Mutex
 }
 
 var sessions = authStore{
-	password: envOrDefault("TICKET_PASSWORD", "ticket-management-dev"),
 	sessions: make(map[string]time.Time),
 }
 
 var adminSessions = struct {
+	username string
+	password string
 	sessions map[string]time.Time
 	mu       sync.Mutex
 }{sessions: make(map[string]time.Time)}
 
-func envOrDefault(name, fallback string) string {
-	if value := os.Getenv(name); value != "" {
-		return value
+func validateCredentialConfig(ticketUsername, ticketPassword, adminUsername, adminPassword string) error {
+	if strings.TrimSpace(ticketUsername) == "" || strings.TrimSpace(adminUsername) == "" {
+		return fmt.Errorf("TICKET_USERNAME and ADMIN_USERNAME must be configured")
 	}
-	return fallback
+	if len(ticketPassword) < 32 || len(adminPassword) < 32 {
+		return fmt.Errorf("TICKET_PASSWORD and ADMIN_PASSWORD must each contain at least 32 characters")
+	}
+	if subtle.ConstantTimeCompare([]byte(ticketPassword), []byte(adminPassword)) == 1 {
+		return fmt.Errorf("TICKET_PASSWORD and ADMIN_PASSWORD must be different")
+	}
+	return nil
+}
+
+func loadAuthConfig() error {
+	ticketUsername := os.Getenv("TICKET_USERNAME")
+	ticketPassword := os.Getenv("TICKET_PASSWORD")
+	adminUsername := os.Getenv("ADMIN_USERNAME")
+	adminPassword := os.Getenv("ADMIN_PASSWORD")
+	if err := validateCredentialConfig(ticketUsername, ticketPassword, adminUsername, adminPassword); err != nil {
+		return err
+	}
+	sessions.username = ticketUsername
+	sessions.password = ticketPassword
+	adminSessions.username = adminUsername
+	adminSessions.password = adminPassword
+	return nil
+}
+
+func credentialsMatch(username, password, expectedUsername, expectedPassword string) bool {
+	usernameMatches := subtle.ConstantTimeCompare([]byte(username), []byte(expectedUsername))
+	passwordMatches := subtle.ConstantTimeCompare([]byte(password), []byte(expectedPassword))
+	return usernameMatches&passwordMatches == 1
 }
 
 func newSession() (string, error) {
@@ -128,10 +157,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 	}
 	username := r.FormValue("username")
 	password := r.FormValue("password")
-	// Temporary access provision: accept any username containing the UN email domain.
-	validUser := strings.Contains(strings.ToLower(username), "@un.org")
-	validPassword := subtle.ConstantTimeCompare([]byte(password), []byte(sessions.password)) == 1
-	if !validUser || !validPassword {
+	if !credentialsMatch(username, password, sessions.username, sessions.password) {
 		w.WriteHeader(http.StatusUnauthorized)
 		_ = loginTemplate.Execute(w, "The username or password was not recognized.")
 		return
@@ -201,9 +227,7 @@ func adminLogin(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid admin login request", http.StatusBadRequest)
 		return
 	}
-	validUser := subtle.ConstantTimeCompare([]byte(r.FormValue("username")), []byte("adm")) == 1
-	validPassword := subtle.ConstantTimeCompare([]byte(r.FormValue("password")), []byte("placeholder")) == 1
-	if !validUser || !validPassword {
+	if !credentialsMatch(r.FormValue("username"), r.FormValue("password"), adminSessions.username, adminSessions.password) {
 		w.WriteHeader(http.StatusUnauthorized)
 		_ = adminLoginTemplate.Execute(w, "The administrator username or password was not recognized.")
 		return
@@ -291,6 +315,9 @@ func guide(w http.ResponseWriter, _ *http.Request) {
 }
 
 func main() {
+	if err := loadAuthConfig(); err != nil {
+		log.Fatal(err)
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /login", login)
 	mux.HandleFunc("POST /login", login)
