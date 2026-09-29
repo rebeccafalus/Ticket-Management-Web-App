@@ -8,23 +8,49 @@ This workspace is split into four repository areas:
 - `route-go/` - Go routing service
 - `infra/` - local service orchestration
 
-## Health endpoints
+## Run locally
 
-Run the services locally:
+Start the local stack, including PostgreSQL. The backend waits for the database,
+applies pending Alembic migrations, and then starts the API:
 
 ```bash
-cd backend-py && python3 -m pip install -r requirements.txt && uvicorn app.main:app --port 8000
-cd route-go && go run .
+docker compose -f infra/docker-compose.yml up --build
 ```
 
-Then check:
+For a standalone backend, install the backend requirements, configure the
+`POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, and
+`POSTGRES_PASSWORD` environment variables, apply migrations, then start Uvicorn:
+
+```bash
+cd backend-py
+python3 -m pip install -r requirements.txt
+alembic upgrade head
+uvicorn app.main:app --port 8000
+```
+
+Check the health endpoints:
 
 ```bash
 curl http://localhost:8000/health
+cd route-go && go run .
 curl http://localhost:8080/health
 ```
 
-Both endpoints return `{"status":"ok"}`.
+Both health endpoints return `{"status":"ok"}`.
+
+## Ticket API
+
+The Python API persists tickets in PostgreSQL. It supports:
+
+- `POST /tickets` to create a ticket with `name`, `email`, `subject`, `category`, `priority`, and `description`.
+- `GET /tickets` to list tickets; optional `status`, `assignee`, `search`, `limit`, and `offset` filters are supported. Use `assignee=unassigned` for unassigned tickets.
+- `GET /tickets/{id}` to read a ticket by its public key, such as `TK-1001`.
+- `PATCH /tickets/{id}` to update `status` and/or `assignee`; setting `assignee` to `null` clears the assignment.
+
+Allowed statuses are `Open`, `In progress`, and `Resolved`; priorities are `Low`,
+`Normal`, and `High`. Response timestamps use ISO 8601 in `createdAt` and
+`resolvedAt` fields. The schema is managed with Alembic migrations in
+`backend-py/migrations/`.
 
 ## Prometheus monitoring
 

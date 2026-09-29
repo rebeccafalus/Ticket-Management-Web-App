@@ -117,18 +117,26 @@ kubectl -n ticket-management rollout status deployment/route-go
 ```
 
 For Azure PostgreSQL, do not apply the local `../k8s/postgres.yaml` StatefulSet.
-Instead, create an application secret from the Terraform outputs and the
-administrator password, then configure the API/ML services to use that server.
-The database endpoint is available with:
+Create the `postgres` Secret consumed by the API from the Terraform outputs and
+the administrator password. The API reads these keys from that Secret:
+
+```bash
+kubectl -n ticket-management create secret generic postgres \
+  --from-literal=POSTGRES_DB=tickets \
+  --from-literal=POSTGRES_USER=ticketadmin \
+  --from-literal=POSTGRES_PASSWORD='<administrator-password>' \
+  --from-literal=POSTGRES_HOST="$(terraform output -raw postgres_fqdn)" \
+  --from-literal=POSTGRES_PORT=5432
+```
+
+The database endpoint is also available with:
 
 ```bash
 terraform output -raw postgres_fqdn
 ```
 
-The current application only exposes health endpoints and does not yet open a
-database connection. Add the connection string when database-backed features
-are implemented. Never commit `terraform.tfvars`, Terraform state, or database
-passwords.
+The backend runs `alembic upgrade head` before serving requests. Never commit
+`terraform.tfvars`, Terraform state, or database passwords.
 
 ## Destroy
 

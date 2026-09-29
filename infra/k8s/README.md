@@ -21,3 +21,9 @@ kubectl apply -k infra/k8s
 
 The overlay is the root `infra/k8s/kustomization.yaml`; the GitHub Actions
 workflow applies the plain manifests directly after replacing their image tags.
+
+The Python API runs the Alembic migration as an init container before starting.
+The `postgres` Secret must provide `POSTGRES_DB`, `POSTGRES_USER`, and
+`POSTGRES_PASSWORD`, `POSTGRES_HOST`, and `POSTGRES_PORT`. The local Secret in
+`postgres.yaml` points to the in-cluster PostgreSQL service; for managed Azure
+PostgreSQL, create the same Secret with the server FQDN as its host.

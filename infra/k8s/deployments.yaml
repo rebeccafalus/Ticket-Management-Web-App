@@ -56,9 +56,19 @@ spec:
       labels:
         app: backend-py
     spec:
+      initContainers:
+        - name: migrate-database
+          image: ghcr.io/your-org/ticket-management-backend-py:latest
+          command: ["alembic", "upgrade", "head"]
+          envFrom:
+            - secretRef:
+                name: postgres
       containers:
         - name: backend-py
           image: ghcr.io/your-org/ticket-management-backend-py:latest
+          envFrom:
+            - secretRef:
+                name: postgres
           ports:
             - containerPort: 8000
           readinessProbe:
