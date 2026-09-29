@@ -20,7 +20,7 @@ class TicketCreate(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     email: EmailStr
     subject: str = Field(min_length=1, max_length=120)
-    category: TicketCategory
+    category: TicketCategory | None = None
     priority: TicketPriority = "Normal"
     description: str = Field(min_length=1, max_length=3000)
 
@@ -39,6 +39,14 @@ class TicketUpdate(BaseModel):
 
     status: TicketStatus = "Open"
     assignee: str | None = Field(default=None, max_length=100)
+    category: TicketCategory | None = None
+
+    @field_validator("category")
+    @classmethod
+    def require_category_value(cls, value: TicketCategory | None) -> TicketCategory:
+        if value is None:
+            raise ValueError("Category cannot be null")
+        return value
 
     @field_validator("assignee")
     @classmethod
@@ -58,6 +66,10 @@ class TicketRead(BaseModel):
     name: str
     email: EmailStr
     category: TicketCategory
+    predicted_category: TicketCategory | None
+    prediction_confidence: float | None
+    category_reviewed_at: datetime | None
+    category_corrected_at: datetime | None
     priority: TicketPriority
     description: str
     status: TicketStatus

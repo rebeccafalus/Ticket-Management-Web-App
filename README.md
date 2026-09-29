@@ -57,6 +57,25 @@ frontend's Nginx server forwards those requests to `backend-py`. The Go service
 remains a separate authenticated ticket-guide and Prometheus-metrics service,
 not an API gateway.
 
+## Ticket classification
+
+The ML service classifies ticket subjects and descriptions into the five
+service categories. `POST /predict` returns a category and confidence;
+`GET /analysis` reports training-set counts and metrics on a fixed holdout set,
+and `POST /evaluate` evaluates caller-supplied labeled examples. Ticket
+creation calls the ML service and stores both the predicted category and
+confidence. If ML is unavailable, the API preserves a supplied category for
+legacy clients or uses `Other` and leaves prediction fields empty.
+
+The bundled training and holdout examples are starter data for demonstrating
+the full workflow, not a production-quality model; replace them with reviewed,
+representative ticket data before relying on predictions operationally.
+
+Technicians can confirm or change the category in the ticket detail panel.
+Reviewed labels are retained separately from model predictions, and
+`GET /analytics` reports category totals, correction counts, and accuracy over
+technician-reviewed predictions only.
+
 ## Prometheus monitoring
 
 The Go routing service exposes Prometheus metrics at `/metrics`. The local

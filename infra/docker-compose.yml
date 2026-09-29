@@ -13,6 +13,7 @@ services:
     build:
       context: ../backend-py
     environment:
+      ML_SERVICE_URL: http://ml:8001
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       POSTGRES_DB: tickets
@@ -24,12 +25,19 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      ml:
+        condition: service_healthy
 
   ml:
     build:
       context: ../ml
     ports:
       - "8001:8001"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
 
   route-go:
     build:

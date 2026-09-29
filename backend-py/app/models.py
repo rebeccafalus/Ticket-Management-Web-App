@@ -35,6 +35,10 @@ class Ticket(Base):
     description: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="Open")
     assignee: Mapped[str | None] = mapped_column(String(100))
+    predicted_category: Mapped[str | None] = mapped_column(String(40))
+    prediction_confidence: Mapped[float | None] = mapped_column()
+    category_reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    category_corrected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
