@@ -44,6 +44,16 @@ jobs:
           test "$(curl --fail --silent http://localhost:8000/health)" = '{"status":"ok"}'
           test "$(curl --fail --silent http://localhost:8001/health)" = '{"status":"ok"}'
           test "$(curl --fail --silent http://localhost:8080/health)" = '{"status":"ok"}'
+          ticket_id=$(curl --fail --silent --show-error \
+            -H 'Content-Type: application/json' \
+            -d '{"name":"CI Smoke","email":"ci@example.com","subject":"Frontend proxy smoke test","category":"Software","priority":"Low","description":"Verify ticket API proxy."}' \
+            http://localhost:3000/api/tickets | python -c 'import json,sys; print(json.load(sys.stdin)["id"])')
+          test -n "$ticket_id"
+          updated_status=$(curl --fail --silent --show-error -X PATCH \
+            -H 'Content-Type: application/json' \
+            -d '{"status":"In progress","assignee":"Alex Chen"}' \
+            "http://localhost:3000/api/tickets/$ticket_id" | python -c 'import json,sys; print(json.load(sys.stdin)["status"])')
+          test "$updated_status" = 'In progress'
 
       - name: Scan source with Trivy
         uses: aquasecurity/trivy-action@v0.36.0

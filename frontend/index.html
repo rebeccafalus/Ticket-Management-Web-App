@@ -226,30 +226,29 @@
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
     <script>
-      const STORAGE_KEY = "switchboard-tickets-v1";
       const technicians = ["Alex Chen", "Jordan Lee", "Sam Rivera", "Riley Morgan"];
       const day = 24 * 60 * 60 * 1000;
-      const examples = [
-        { id: "TK-1048", subject: "VPN disconnects every few minutes", name: "Morgan Patel", email: "morgan.patel@northstar.io", category: "Network", priority: "High", description: "My VPN keeps disconnecting every few minutes while I am on calls. I have restarted the client and router, but it still happens. I am working from the Boston office today.", status: "Open", assignee: "", createdAt: Date.now() - 18 * 60 * 1000 },
-        { id: "TK-1047", subject: "Access to the finance shared drive", name: "Casey Brooks", email: "casey.brooks@northstar.io", category: "Account access", priority: "Normal", description: "I joined the finance team this week and need read access to the shared Finance Operations drive. My manager has approved the request.", status: "In progress", assignee: "Alex Chen", createdAt: Date.now() - 2 * 60 * 60 * 1000 },
-        { id: "TK-1046", subject: "Laptop fan running loudly", name: "Jamie Rivera", email: "jamie.rivera@northstar.io", category: "Hardware", priority: "Normal", description: "The fan has been running at full speed since this morning, even with just email open. The machine is otherwise responsive.", status: "Open", assignee: "Jordan Lee", createdAt: Date.now() - 5 * 60 * 60 * 1000 },
-        { id: "TK-1045", subject: "Install approved design software", name: "Avery Chen", email: "avery.chen@northstar.io", category: "Software", priority: "Low", description: "Please install the approved Figma desktop client on my workstation before the next design review.", status: "Resolved", assignee: "Sam Rivera", createdAt: Date.now() - day, resolvedAt: Date.now() - 3 * 60 * 60 * 1000 }
-      ];
-      let tickets = loadTickets();
-      let selectedId = tickets[0]?.id ?? null;
+      let tickets = [];
+      let selectedId = null;
       let toastTimer;
 
-      function loadTickets() {
-        try {
-          const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
-          if (Array.isArray(stored)) return stored;
-        } catch (error) { console.warn("Could not read saved requests", error); }
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(examples));
-        return examples;
+      async function apiRequest(path, options = {}) {
+        const response = await fetch(`/api${path}`, {
+          ...options,
+          headers: { "Content-Type": "application/json", ...options.headers }
+        });
+        let payload;
+        try { payload = await response.json(); } catch {}
+        if (!response.ok) {
+          throw new Error(typeof payload?.detail === "string" ? payload.detail : `Request failed (${response.status})`);
+        }
+        return payload;
       }
 
-      function saveTickets() {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(tickets));
+      async function loadTickets() {
+        tickets = await apiRequest("/tickets?limit=500");
+        if (!tickets.some(ticket => ticket.id === selectedId)) selectedId = tickets[0]?.id ?? null;
+        renderQueue();
       }
 
       function escapeHtml(value) {
@@ -265,17 +264,18 @@
       }
 
       function relativeDate(timestamp) {
-        const elapsed = Math.max(0, Date.now() - timestamp);
+        const date = typeof timestamp === "number" ? timestamp : Date.parse(timestamp);
+        const elapsed = Math.max(0, Date.now() - date);
         if (elapsed < 60 * 60 * 1000) return `${Math.max(1, Math.floor(elapsed / 60000))}m ago`;
         if (elapsed < day) return `${Math.floor(elapsed / (60 * 60 * 1000))}h ago`;
-        return new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(new Date(timestamp));
+        return new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(new Date(date));
       }
 
       function filteredTickets() {
         const query = document.getElementById("search-input").value.trim().toLowerCase();
         const status = document.getElementById("status-filter").value;
         const assignee = document.getElementById("assignee-filter").value;
-        return [...tickets].sort((a, b) => b.createdAt - a.createdAt).filter(ticket => {
+        return [...tickets].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).filter(ticket => {
           const matchesQuery = !query || [ticket.id, ticket.subject, ticket.name, ticket.email, ticket.category].some(value => value.toLowerCase().includes(query));
           return matchesQuery && (status === "all" || ticket.status === status) && (assignee === "all" || (assignee === "unassigned" ? !ticket.assignee : ticket.assignee === assignee));
         });
@@ -284,7 +284,7 @@
       function renderStats() {
         document.getElementById("open-count").textContent = tickets.filter(ticket => ticket.status === "Open").length;
         document.getElementById("progress-count").textContent = tickets.filter(ticket => ticket.status === "In progress").length;
-        document.getElementById("resolved-count").textContent = tickets.filter(ticket => ticket.status === "Resolved" && ticket.resolvedAt && Date.now() - ticket.resolvedAt < day).length;
+        document.getElementById("resolved-count").textContent = tickets.filter(ticket => ticket.status === "Resolved" && ticket.resolvedAt && Date.now() - Date.parse(ticket.resolvedAt) < day).length;
         document.getElementById("total-count").textContent = tickets.length;
       }
 
@@ -332,11 +332,19 @@
         renderList(filteredTickets());
       }
 
-      function updateTicket(id, updates) {
-        tickets = tickets.map(ticket => ticket.id === id ? { ...ticket, ...updates, resolvedAt: updates.status === "Resolved" ? (ticket.resolvedAt || Date.now()) : updates.status ? null : ticket.resolvedAt } : ticket);
-        saveTickets();
-        renderQueue();
-        showToast("Request updated");
+      async function updateTicket(id, updates) {
+        try {
+          const ticket = await apiRequest(`/tickets/${encodeURIComponent(id)}`, {
+            method: "PATCH",
+            body: JSON.stringify(updates)
+          });
+          tickets = tickets.map(current => current.id === id ? ticket : current);
+          renderQueue();
+          showToast("Request updated");
+        } catch (error) {
+          showToast(`Could not update request: ${error.message}`);
+          loadTickets().catch(() => {});
+        }
       }
 
       function showToast(message) {
@@ -363,24 +371,44 @@
       document.getElementById("search-input").addEventListener("input", renderQueue);
       document.getElementById("status-filter").addEventListener("change", renderQueue);
       document.getElementById("assignee-filter").addEventListener("change", renderQueue);
-      document.getElementById("ticket-form").addEventListener("submit", event => {
+      document.getElementById("ticket-form").addEventListener("submit", async event => {
         event.preventDefault();
-        const form = new FormData(event.currentTarget);
-        const highest = tickets.reduce((value, ticket) => Math.max(value, Number(ticket.id.replace(/\D/g, "")) || 0), 1048);
-        const ticket = { id: `TK-${highest + 1}`, name: form.get("name").trim(), email: form.get("email").trim(), subject: form.get("subject").trim(), category: form.get("category"), priority: form.get("priority"), description: form.get("description").trim(), status: "Open", assignee: "", createdAt: Date.now() };
-        tickets.unshift(ticket);
-        selectedId = ticket.id;
-        saveTickets();
-        event.currentTarget.reset();
-        document.getElementById("status-filter").value = "all";
-        document.getElementById("assignee-filter").value = "all";
-        document.getElementById("search-input").value = "";
-        showView("queue");
-        renderQueue();
-        showToast(`Request ${ticket.id} submitted`);
+        const formElement = event.currentTarget;
+        const form = new FormData(formElement);
+        const submitButton = formElement.querySelector("button[type=submit]");
+        submitButton.disabled = true;
+        try {
+          const ticket = await apiRequest("/tickets", {
+            method: "POST",
+            body: JSON.stringify({
+              name: form.get("name").trim(),
+              email: form.get("email").trim(),
+              subject: form.get("subject").trim(),
+              category: form.get("category"),
+              priority: form.get("priority"),
+              description: form.get("description").trim()
+            })
+          });
+          selectedId = ticket.id;
+          formElement.reset();
+          document.getElementById("status-filter").value = "all";
+          document.getElementById("assignee-filter").value = "all";
+          document.getElementById("search-input").value = "";
+          tickets = [ticket, ...tickets.filter(current => current.id !== ticket.id)];
+          renderQueue();
+          showView("queue");
+          showToast(`Request ${ticket.id} submitted`);
+        } catch (error) {
+          showToast(`Could not submit request: ${error.message}`);
+        } finally {
+          submitButton.disabled = false;
+        }
       });
 
-      renderQueue();
+      loadTickets().catch(error => {
+        document.getElementById("ticket-list-items").innerHTML = `<div class="empty"><strong>Could not load requests</strong>${escapeHtml(error.message)}</div>`;
+        showToast("Could not connect to the ticket service");
+      });
     </script>
   </body>
 </html>

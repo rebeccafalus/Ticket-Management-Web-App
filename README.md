@@ -52,6 +52,11 @@ Allowed statuses are `Open`, `In progress`, and `Resolved`; priorities are `Low`
 `resolvedAt` fields. The schema is managed with Alembic migrations in
 `backend-py/migrations/`.
 
+The frontend uses these endpoints through its same-origin `/api/` path; the
+frontend's Nginx server forwards those requests to `backend-py`. The Go service
+remains a separate authenticated ticket-guide and Prometheus-metrics service,
+not an API gateway.
+
 ## Prometheus monitoring
 
 The Go routing service exposes Prometheus metrics at `/metrics`. The local
