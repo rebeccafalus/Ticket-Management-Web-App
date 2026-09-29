@@ -3,12 +3,384 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Ticket Management</title>
+    <meta name="theme-color" content="#f4f7f5" />
+    <title>Switchboard | Service desk</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #17251f;
+        --muted: #748078;
+        --line: #e3e9e5;
+        --paper: #ffffff;
+        --canvas: #f4f7f5;
+        --green: #137c5b;
+        --green-dark: #0c6146;
+        --green-pale: #e7f4ed;
+        --coral: #da674f;
+        --amber: #b46d11;
+        --amber-pale: #fbf1df;
+        --red-pale: #fbe9e5;
+        --shadow: 0 12px 34px rgba(22, 45, 34, .06);
+      }
+
+      * { box-sizing: border-box; }
+      body { margin: 0; color: var(--ink); background: var(--canvas); font: 14px/1.5 "DM Sans", sans-serif; }
+      button, input, select, textarea { font: inherit; }
+      button { cursor: pointer; }
+      .topbar { height: 70px; display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 0 5.2%; background: #fff; border-bottom: 1px solid var(--line); }
+      .brand { display: flex; align-items: center; gap: 11px; color: inherit; text-decoration: none; }
+      .brand-mark { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 9px; color: #fff; background: var(--green); font: 700 17px "Space Grotesk", sans-serif; }
+      .brand-name { font: 700 18px "Space Grotesk", sans-serif; letter-spacing: 0; }
+      .brand-sub { margin-left: 5px; color: #909b94; font-size: 12px; }
+      .top-actions { display: flex; align-items: center; gap: 18px; }
+      .live-label { display: flex; align-items: center; gap: 8px; color: #68756d; font-size: 12px; }
+      .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #43aa72; box-shadow: 0 0 0 3px #e7f4ed; }
+      .avatar { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; background: #f4d9c9; color: #75472f; font-weight: 700; font-size: 12px; }
+      .shell { max-width: 1380px; margin: 0 auto; padding: 34px 5.2% 60px; }
+      .page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; margin-bottom: 24px; }
+      .eyebrow { margin: 0 0 5px; color: var(--green); font-size: 11px; font-weight: 700; letter-spacing: 1.1px; text-transform: uppercase; }
+      h1, h2, h3, p { margin-top: 0; }
+      h1 { margin-bottom: 5px; font: 600 28px/1.2 "Space Grotesk", sans-serif; letter-spacing: 0; }
+      .subhead { margin: 0; color: var(--muted); }
+      .nav-tabs { display: flex; gap: 5px; padding: 4px; border: 1px solid var(--line); border-radius: 10px; background: #edf2ef; }
+      .nav-tab { min-height: 36px; padding: 0 14px; border: 0; border-radius: 7px; color: #69766f; background: transparent; font-size: 13px; font-weight: 600; }
+      .nav-tab[aria-selected="true"] { color: var(--ink); background: #fff; box-shadow: 0 1px 4px #18291f14; }
+      .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 17px; }
+      .stat { display: flex; align-items: center; justify-content: space-between; min-height: 77px; padding: 15px 18px; border: 1px solid var(--line); border-radius: 9px; background: var(--paper); }
+      .stat-label { display: block; color: var(--muted); font-size: 12px; }
+      .stat-value { display: block; margin-top: 2px; font: 600 24px/1.1 "Space Grotesk", sans-serif; }
+      .stat-mark { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 9px; color: var(--green); background: var(--green-pale); font-size: 15px; font-weight: 700; }
+      .queue-toolbar { display: flex; align-items: center; gap: 10px; padding: 13px 15px; border: 1px solid var(--line); border-bottom: 0; border-radius: 9px 9px 0 0; background: #fff; }
+      .search-wrap { position: relative; flex: 1; max-width: 340px; }
+      .search-wrap::before { content: "⌕"; position: absolute; left: 12px; top: 5px; color: #87928b; font-size: 20px; }
+      .search-wrap input { width: 100%; height: 37px; padding: 0 12px 0 34px; border: 1px solid var(--line); border-radius: 6px; outline: 0; background: #fbfcfb; }
+      .search-wrap input:focus, select:focus, input:focus, textarea:focus { border-color: #66a88e; box-shadow: 0 0 0 3px #137c5b1c; outline: none; }
+      .filter-select { height: 37px; min-width: 140px; padding: 0 30px 0 10px; border: 1px solid var(--line); border-radius: 6px; color: #435148; background: #fff; }
+      .queue-count { margin-left: auto; color: var(--muted); font-size: 12px; }
+      .queue-layout { display: grid; grid-template-columns: minmax(280px, .76fr) minmax(440px, 1.5fr); min-height: 540px; border: 1px solid var(--line); border-radius: 0 0 9px 9px; background: #fff; box-shadow: var(--shadow); overflow: hidden; }
+      .ticket-list { border-right: 1px solid var(--line); }
+      .list-heading { display: flex; justify-content: space-between; align-items: center; padding: 15px 17px 12px; color: #68756d; font-size: 11px; font-weight: 700; letter-spacing: .7px; text-transform: uppercase; }
+      .ticket-row { width: 100%; display: block; padding: 15px 17px; border: 0; border-top: 1px solid #edf1ee; text-align: left; color: inherit; background: #fff; transition: background .16s ease; }
+      .ticket-row:hover { background: #f8fbf9; }
+      .ticket-row[aria-current="true"] { background: #eff7f2; box-shadow: inset 3px 0 var(--green); }
+      .ticket-row-top, .ticket-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+      .ticket-id { color: #87928b; font: 600 11px "Space Grotesk", sans-serif; }
+      .ticket-title { display: block; margin: 6px 0 8px; overflow: hidden; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+      .ticket-person { color: #68756d; font-size: 12px; }
+      .ticket-foot { margin-top: 11px; color: #8a958e; font-size: 11px; }
+      .status { display: inline-flex; align-items: center; gap: 5px; min-height: 22px; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 700; white-space: nowrap; }
+      .status::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+      .status-open { color: #a85f0e; background: var(--amber-pale); }
+      .status-progress { color: #2477a6; background: #e8f3f8; }
+      .status-resolved { color: #16724f; background: var(--green-pale); }
+      .priority { display: inline-flex; align-items: center; gap: 4px; color: #7d8981; font-size: 11px; }
+      .priority-high { color: var(--coral); }
+      .detail { padding: 26px 30px 30px; }
+      .detail-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+      .detail-id { margin-bottom: 7px; color: #87928b; font: 600 12px "Space Grotesk", sans-serif; }
+      .detail h2 { max-width: 600px; margin: 0 0 7px; font: 600 22px/1.28 "Space Grotesk", sans-serif; letter-spacing: 0; }
+      .detail-meta { color: var(--muted); font-size: 12px; }
+      .detail-description { max-width: 650px; margin: 23px 0 24px; color: #4e5c54; line-height: 1.75; white-space: pre-wrap; }
+      .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; padding: 17px; border: 1px solid var(--line); border-radius: 8px; background: #fbfcfb; }
+      .field label { display: block; margin-bottom: 6px; color: #68756d; font-size: 11px; font-weight: 700; letter-spacing: .35px; text-transform: uppercase; }
+      .field select, .field input, .field textarea { width: 100%; min-height: 39px; padding: 8px 10px; border: 1px solid #dce5df; border-radius: 6px; color: #26362d; background: #fff; }
+      .detail-section { margin-top: 24px; }
+      .section-title { margin: 0 0 12px; font: 600 13px "Space Grotesk", sans-serif; }
+      .requester { display: flex; align-items: center; gap: 11px; padding: 12px 0; border-top: 1px solid var(--line); }
+      .requester-avatar { width: 34px; height: 34px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 50%; color: #9b593d; background: #f8e8de; font-size: 11px; font-weight: 700; }
+      .requester-name { font-size: 12px; font-weight: 700; }
+      .requester-email { color: var(--muted); font-size: 11px; }
+      .detail-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+      .tag { padding: 4px 9px; border: 1px solid var(--line); border-radius: 20px; color: #657269; font-size: 11px; }
+      .empty { padding: 52px 24px; color: var(--muted); text-align: center; }
+      .empty strong { display: block; margin-bottom: 5px; color: var(--ink); font: 600 16px "Space Grotesk", sans-serif; }
+      .button { min-height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; border: 1px solid transparent; border-radius: 6px; color: #fff; background: var(--green); font-size: 12px; font-weight: 700; transition: background .15s ease, transform .15s ease; }
+      .button:hover { background: var(--green-dark); }
+      .button:active { transform: translateY(1px); }
+      .button-secondary { border-color: var(--line); color: #34443a; background: #fff; }
+      .button-secondary:hover { background: #f5f8f6; }
+      .form-layout { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(240px, .75fr); gap: 17px; align-items: start; }
+      .form-panel, .side-panel { border: 1px solid var(--line); border-radius: 9px; background: #fff; box-shadow: var(--shadow); }
+      .form-panel { padding: 25px 27px 26px; }
+      .form-panel h2 { margin-bottom: 5px; font: 600 18px "Space Grotesk", sans-serif; }
+      .form-intro { margin-bottom: 21px; color: var(--muted); font-size: 12px; }
+      .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      .form-grid .wide { grid-column: 1 / -1; }
+      .form-grid input, .form-grid select, .form-grid textarea { min-height: 42px; padding: 10px 11px; border: 1px solid #dce5df; border-radius: 6px; color: #26362d; background: #fff; }
+      .form-grid textarea { min-height: 132px; resize: vertical; }
+      .help-text { margin: 5px 0 0; color: #87928b; font-size: 11px; }
+      .form-footer { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-top: 20px; padding-top: 17px; border-top: 1px solid #edf1ee; }
+      .privacy-note { margin: 0; color: #7b8880; font-size: 11px; }
+      .side-panel { overflow: hidden; }
+      .side-accent { height: 5px; background: linear-gradient(90deg, #16805d 0 64%, #e8bb4e 64% 84%, #db725a 84%); }
+      .side-content { padding: 20px; }
+      .side-content h3 { margin-bottom: 13px; font: 600 15px "Space Grotesk", sans-serif; }
+      .hours { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #edf1ee; color: #68756d; font-size: 12px; }
+      .hours strong { color: var(--ink); font-weight: 600; }
+      .side-footnote { margin: 15px 0 0; color: #7c8981; font-size: 11px; line-height: 1.6; }
+      .toast { position: fixed; right: 22px; bottom: 22px; z-index: 5; max-width: calc(100% - 44px); padding: 12px 16px; border-radius: 7px; color: #fff; background: #183b2c; box-shadow: 0 8px 30px #17251f33; opacity: 0; transform: translateY(8px); pointer-events: none; transition: .2s ease; }
+      .toast.visible { opacity: 1; transform: translateY(0); }
+      [hidden] { display: none !important; }
+
+      @media (max-width: 800px) {
+        .topbar { padding: 0 20px; }
+        .shell { padding: 25px 20px 40px; }
+        .queue-layout { grid-template-columns: minmax(235px, .8fr) minmax(330px, 1.2fr); }
+        .detail { padding: 22px 20px; }
+        .stats { gap: 8px; }
+        .stat { padding: 12px; }
+        .form-layout { grid-template-columns: 1fr; }
+        .side-panel { display: none; }
+      }
+      @media (max-width: 620px) {
+        .topbar { height: 60px; }
+        .brand-sub, .live-label { display: none; }
+        .shell { padding: 22px 14px 34px; }
+        .page-head { align-items: flex-start; flex-direction: column; margin-bottom: 17px; }
+        h1 { font-size: 25px; }
+        .nav-tabs { width: 100%; }
+        .nav-tab { flex: 1; padding: 0 8px; }
+        .stats { grid-template-columns: 1fr 1fr; }
+        .stat { min-height: 68px; }
+        .queue-toolbar { flex-wrap: wrap; }
+        .search-wrap { flex-basis: 100%; max-width: none; }
+        .filter-select { flex: 1; }
+        .queue-layout { display: block; min-height: 0; }
+        .ticket-list { border-right: 0; }
+        .ticket-row { padding: 13px 15px; }
+        .detail { border-top: 1px solid var(--line); padding: 21px 16px; }
+        .detail h2 { font-size: 19px; }
+        .detail-top { flex-direction: column; }
+        .action-grid { padding: 13px; }
+        .form-panel { padding: 21px 17px; }
+        .form-grid { grid-template-columns: 1fr; gap: 13px; }
+        .form-grid .wide { grid-column: auto; }
+        .form-footer { align-items: flex-start; flex-direction: column-reverse; }
+        .form-footer .button { width: 100%; }
+      }
+      @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; } }
+    </style>
   </head>
   <body>
-    <main>
-      <h1>Ticket Management</h1>
-      <p>Frontend service is running.</p>
+    <header class="topbar">
+      <a class="brand" href="#queue" aria-label="Switchboard service desk">
+        <span class="brand-mark" aria-hidden="true">S</span>
+        <span class="brand-name">switchboard</span><span class="brand-sub">service desk</span>
+      </a>
+      <div class="top-actions"><span class="live-label"><span class="live-dot"></span>All systems operational</span><span class="avatar" aria-label="Signed in as Riley Morgan">RM</span></div>
+    </header>
+
+    <main class="shell">
+      <div class="page-head">
+        <div><p class="eyebrow" id="page-eyebrow">Service operations</p><h1 id="page-title">Technician queue</h1><p class="subhead" id="page-subhead">Triage requests and keep work moving.</p></div>
+        <nav class="nav-tabs" role="tablist" aria-label="Service desk views">
+          <button class="nav-tab" id="queue-tab" type="button" role="tab" aria-selected="true" aria-controls="queue-view">Technician queue</button>
+          <button class="nav-tab" id="submit-tab" type="button" role="tab" aria-selected="false" aria-controls="submit-view">Submit a request</button>
+        </nav>
+      </div>
+
+      <section id="queue-view" role="tabpanel" aria-labelledby="queue-tab">
+        <div class="stats" aria-label="Queue summary">
+          <div class="stat"><div><span class="stat-label">Open requests</span><span class="stat-value" id="open-count">0</span></div><span class="stat-mark">!</span></div>
+          <div class="stat"><div><span class="stat-label">In progress</span><span class="stat-value" id="progress-count">0</span></div><span class="stat-mark">↗</span></div>
+          <div class="stat"><div><span class="stat-label">Resolved today</span><span class="stat-value" id="resolved-count">0</span></div><span class="stat-mark">✓</span></div>
+          <div class="stat"><div><span class="stat-label">All requests</span><span class="stat-value" id="total-count">0</span></div><span class="stat-mark">≡</span></div>
+        </div>
+        <div class="queue-toolbar">
+          <label class="search-wrap"><span hidden>Search requests</span><input id="search-input" type="search" placeholder="Search requests…" aria-label="Search requests" /></label>
+          <select class="filter-select" id="status-filter" aria-label="Filter by status"><option value="all">All statuses</option><option value="Open">Open</option><option value="In progress">In progress</option><option value="Resolved">Resolved</option></select>
+          <select class="filter-select" id="assignee-filter" aria-label="Filter by assignee"><option value="all">All technicians</option><option value="unassigned">Unassigned</option><option value="Alex Chen">Alex Chen</option><option value="Jordan Lee">Jordan Lee</option><option value="Sam Rivera">Sam Rivera</option><option value="Riley Morgan">Riley Morgan</option></select>
+          <span class="queue-count" id="visible-count" aria-live="polite"></span>
+        </div>
+        <div class="queue-layout">
+          <section class="ticket-list" aria-label="Requests">
+            <div class="list-heading"><span>Requests</span><span id="list-count">0</span></div>
+            <div id="ticket-list-items"></div>
+          </section>
+          <article class="detail" id="ticket-detail" aria-live="polite"></article>
+        </div>
+      </section>
+
+      <section id="submit-view" role="tabpanel" aria-labelledby="submit-tab" hidden>
+        <div class="form-layout">
+          <form class="form-panel" id="ticket-form">
+            <h2>Tell us what you need</h2>
+            <p class="form-intro">Share a few details and our support team will take it from here.</p>
+            <div class="form-grid">
+              <div class="field"><label for="requester-name">Your name</label><input id="requester-name" name="name" autocomplete="name" placeholder="e.g. Taylor Kim" required maxlength="80" /></div>
+              <div class="field"><label for="requester-email">Work email</label><input id="requester-email" name="email" type="email" autocomplete="email" placeholder="you@company.com" required maxlength="160" /></div>
+              <div class="field wide"><label for="ticket-subject">Subject</label><input id="ticket-subject" name="subject" placeholder="What do you need help with?" required maxlength="120" /></div>
+              <div class="field"><label for="ticket-category">Category</label><select id="ticket-category" name="category" required><option value="" disabled selected>Select a category</option><option>Account access</option><option>Hardware</option><option>Software</option><option>Network</option><option>Other</option></select></div>
+              <div class="field"><label for="ticket-priority">Priority</label><select id="ticket-priority" name="priority"><option>Normal</option><option>High</option><option>Low</option></select><p class="help-text">Choose high only if work is blocked.</p></div>
+              <div class="field wide"><label for="ticket-description">Description</label><textarea id="ticket-description" name="description" placeholder="Include what happened, what you expected, and anything you have already tried." required maxlength="3000"></textarea></div>
+            </div>
+            <div class="form-footer"><p class="privacy-note">Your request is shared with the internal support team.</p><button class="button" type="submit">Send request <span aria-hidden="true">→</span></button></div>
+          </form>
+          <aside class="side-panel" aria-label="Support availability"><div class="side-accent"></div><div class="side-content"><h3>Support availability</h3><div class="hours"><span>Monday – Friday</span><strong>8:00 – 18:00</strong></div><div class="hours"><span>Saturday</span><strong>10:00 – 14:00</strong></div><div class="hours"><span>Sunday</span><strong>Closed</strong></div><p class="side-footnote">Requests are reviewed in the order received. High-priority issues are triaged as quickly as possible during support hours.</p></div></aside>
+        </div>
+      </section>
     </main>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script>
+      const STORAGE_KEY = "switchboard-tickets-v1";
+      const technicians = ["Alex Chen", "Jordan Lee", "Sam Rivera", "Riley Morgan"];
+      const day = 24 * 60 * 60 * 1000;
+      const examples = [
+        { id: "TK-1048", subject: "VPN disconnects every few minutes", name: "Morgan Patel", email: "morgan.patel@northstar.io", category: "Network", priority: "High", description: "My VPN keeps disconnecting every few minutes while I am on calls. I have restarted the client and router, but it still happens. I am working from the Boston office today.", status: "Open", assignee: "", createdAt: Date.now() - 18 * 60 * 1000 },
+        { id: "TK-1047", subject: "Access to the finance shared drive", name: "Casey Brooks", email: "casey.brooks@northstar.io", category: "Account access", priority: "Normal", description: "I joined the finance team this week and need read access to the shared Finance Operations drive. My manager has approved the request.", status: "In progress", assignee: "Alex Chen", createdAt: Date.now() - 2 * 60 * 60 * 1000 },
+        { id: "TK-1046", subject: "Laptop fan running loudly", name: "Jamie Rivera", email: "jamie.rivera@northstar.io", category: "Hardware", priority: "Normal", description: "The fan has been running at full speed since this morning, even with just email open. The machine is otherwise responsive.", status: "Open", assignee: "Jordan Lee", createdAt: Date.now() - 5 * 60 * 60 * 1000 },
+        { id: "TK-1045", subject: "Install approved design software", name: "Avery Chen", email: "avery.chen@northstar.io", category: "Software", priority: "Low", description: "Please install the approved Figma desktop client on my workstation before the next design review.", status: "Resolved", assignee: "Sam Rivera", createdAt: Date.now() - day, resolvedAt: Date.now() - 3 * 60 * 60 * 1000 }
+      ];
+      let tickets = loadTickets();
+      let selectedId = tickets[0]?.id ?? null;
+      let toastTimer;
+
+      function loadTickets() {
+        try {
+          const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
+          if (Array.isArray(stored)) return stored;
+        } catch (error) { console.warn("Could not read saved requests", error); }
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(examples));
+        return examples;
+      }
+
+      function saveTickets() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(tickets));
+      }
+
+      function escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[character]);
+      }
+
+      function initials(name) {
+        return name.split(/\s+/).slice(0, 2).map(part => part[0] || "").join("").toUpperCase();
+      }
+
+      function statusClass(status) {
+        return status === "Open" ? "status-open" : status === "Resolved" ? "status-resolved" : "status-progress";
+      }
+
+      function relativeDate(timestamp) {
+        const elapsed = Math.max(0, Date.now() - timestamp);
+        if (elapsed < 60 * 60 * 1000) return `${Math.max(1, Math.floor(elapsed / 60000))}m ago`;
+        if (elapsed < day) return `${Math.floor(elapsed / (60 * 60 * 1000))}h ago`;
+        return new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(new Date(timestamp));
+      }
+
+      function filteredTickets() {
+        const query = document.getElementById("search-input").value.trim().toLowerCase();
+        const status = document.getElementById("status-filter").value;
+        const assignee = document.getElementById("assignee-filter").value;
+        return [...tickets].sort((a, b) => b.createdAt - a.createdAt).filter(ticket => {
+          const matchesQuery = !query || [ticket.id, ticket.subject, ticket.name, ticket.email, ticket.category].some(value => value.toLowerCase().includes(query));
+          return matchesQuery && (status === "all" || ticket.status === status) && (assignee === "all" || (assignee === "unassigned" ? !ticket.assignee : ticket.assignee === assignee));
+        });
+      }
+
+      function renderStats() {
+        document.getElementById("open-count").textContent = tickets.filter(ticket => ticket.status === "Open").length;
+        document.getElementById("progress-count").textContent = tickets.filter(ticket => ticket.status === "In progress").length;
+        document.getElementById("resolved-count").textContent = tickets.filter(ticket => ticket.status === "Resolved" && ticket.resolvedAt && Date.now() - ticket.resolvedAt < day).length;
+        document.getElementById("total-count").textContent = tickets.length;
+      }
+
+      function renderList(items) {
+        const list = document.getElementById("ticket-list-items");
+        document.getElementById("visible-count").textContent = `${items.length} shown`;
+        document.getElementById("list-count").textContent = items.length;
+        if (!items.length) {
+          list.innerHTML = '<div class="empty"><strong>No matching requests</strong>Try changing your search or filters.</div>';
+          document.getElementById("ticket-detail").innerHTML = '<div class="empty"><strong>Nothing selected</strong>Choose another filter to see requests.</div>';
+          return;
+        }
+        if (!items.some(ticket => ticket.id === selectedId)) selectedId = items[0].id;
+        list.innerHTML = items.map(ticket => `<button type="button" class="ticket-row" data-ticket-id="${escapeHtml(ticket.id)}" aria-current="${ticket.id === selectedId}">
+          <span class="ticket-row-top"><span class="ticket-id">${escapeHtml(ticket.id)}</span><span class="status ${statusClass(ticket.status)}">${escapeHtml(ticket.status)}</span></span>
+          <span class="ticket-title">${escapeHtml(ticket.subject)}</span>
+          <span class="ticket-person">${escapeHtml(ticket.name)}</span>
+          <span class="ticket-foot"><span>${escapeHtml(ticket.category)} · ${ticket.assignee ? `Assigned to ${escapeHtml(ticket.assignee.split(" ")[0])}` : "Unassigned"}</span><span class="priority ${ticket.priority === "High" ? "priority-high" : ""}">${ticket.priority === "High" ? "▲ " : ""}${escapeHtml(ticket.priority)}</span></span>
+        </button>`).join("");
+        list.querySelectorAll("[data-ticket-id]").forEach(button => button.addEventListener("click", () => {
+          selectedId = button.dataset.ticketId;
+          renderQueue();
+        }));
+        renderDetail(items.find(ticket => ticket.id === selectedId));
+      }
+
+      function renderDetail(ticket) {
+        const detail = document.getElementById("ticket-detail");
+        if (!ticket) return;
+        const assigneeOptions = ['<option value="">Unassigned</option>', ...technicians.map(name => `<option value="${escapeHtml(name)}" ${ticket.assignee === name ? "selected" : ""}>${escapeHtml(name)}</option>`)].join("");
+        detail.innerHTML = `<div class="detail-top"><div><div class="detail-id">${escapeHtml(ticket.id)} <span aria-hidden="true">·</span> Received ${relativeDate(ticket.createdAt)}</div><h2>${escapeHtml(ticket.subject)}</h2><div class="detail-meta">Submitted by ${escapeHtml(ticket.name)}</div></div><span class="status ${statusClass(ticket.status)}">${escapeHtml(ticket.status)}</span></div>
+          <p class="detail-description">${escapeHtml(ticket.description)}</p>
+          <div class="action-grid">
+            <div class="field"><label for="detail-status">Status</label><select id="detail-status"><option ${ticket.status === "Open" ? "selected" : ""}>Open</option><option ${ticket.status === "In progress" ? "selected" : ""}>In progress</option><option ${ticket.status === "Resolved" ? "selected" : ""}>Resolved</option></select></div>
+            <div class="field"><label for="detail-assignee">Assigned technician</label><select id="detail-assignee">${assigneeOptions}</select></div>
+          </div>
+          <section class="detail-section"><h3 class="section-title">Requester</h3><div class="requester"><span class="requester-avatar">${escapeHtml(initials(ticket.name))}</span><div><div class="requester-name">${escapeHtml(ticket.name)}</div><a class="requester-email" href="mailto:${escapeHtml(ticket.email)}">${escapeHtml(ticket.email)}</a></div></div></section>
+          <div class="detail-tags"><span class="tag">${escapeHtml(ticket.category)}</span><span class="tag">${escapeHtml(ticket.priority)} priority</span>${ticket.resolvedAt ? `<span class="tag">Resolved ${relativeDate(ticket.resolvedAt)}</span>` : ""}</div>`;
+        detail.querySelector("#detail-status").addEventListener("change", event => updateTicket(ticket.id, { status: event.target.value }));
+        detail.querySelector("#detail-assignee").addEventListener("change", event => updateTicket(ticket.id, { assignee: event.target.value }));
+      }
+
+      function renderQueue() {
+        renderStats();
+        renderList(filteredTickets());
+      }
+
+      function updateTicket(id, updates) {
+        tickets = tickets.map(ticket => ticket.id === id ? { ...ticket, ...updates, resolvedAt: updates.status === "Resolved" ? (ticket.resolvedAt || Date.now()) : updates.status ? null : ticket.resolvedAt } : ticket);
+        saveTickets();
+        renderQueue();
+        showToast("Request updated");
+      }
+
+      function showToast(message) {
+        const toast = document.getElementById("toast");
+        toast.textContent = message;
+        toast.classList.add("visible");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.remove("visible"), 2600);
+      }
+
+      function showView(view) {
+        const queueIsActive = view === "queue";
+        document.getElementById("queue-view").hidden = !queueIsActive;
+        document.getElementById("submit-view").hidden = queueIsActive;
+        document.getElementById("queue-tab").setAttribute("aria-selected", queueIsActive);
+        document.getElementById("submit-tab").setAttribute("aria-selected", !queueIsActive);
+        document.getElementById("page-eyebrow").textContent = queueIsActive ? "Service operations" : "Customer support";
+        document.getElementById("page-title").textContent = queueIsActive ? "Technician queue" : "Submit a request";
+        document.getElementById("page-subhead").textContent = queueIsActive ? "Triage requests and keep work moving." : "We’ll get your request to the right person.";
+      }
+
+      document.getElementById("queue-tab").addEventListener("click", () => showView("queue"));
+      document.getElementById("submit-tab").addEventListener("click", () => showView("submit"));
+      document.getElementById("search-input").addEventListener("input", renderQueue);
+      document.getElementById("status-filter").addEventListener("change", renderQueue);
+      document.getElementById("assignee-filter").addEventListener("change", renderQueue);
+      document.getElementById("ticket-form").addEventListener("submit", event => {
+        event.preventDefault();
+        const form = new FormData(event.currentTarget);
+        const highest = tickets.reduce((value, ticket) => Math.max(value, Number(ticket.id.replace(/\D/g, "")) || 0), 1048);
+        const ticket = { id: `TK-${highest + 1}`, name: form.get("name").trim(), email: form.get("email").trim(), subject: form.get("subject").trim(), category: form.get("category"), priority: form.get("priority"), description: form.get("description").trim(), status: "Open", assignee: "", createdAt: Date.now() };
+        tickets.unshift(ticket);
+        selectedId = ticket.id;
+        saveTickets();
+        event.currentTarget.reset();
+        document.getElementById("status-filter").value = "all";
+        document.getElementById("assignee-filter").value = "all";
+        document.getElementById("search-input").value = "";
+        showView("queue");
+        renderQueue();
+        showToast(`Request ${ticket.id} submitted`);
+      });
+
+      renderQueue();
+    </script>
   </body>
 </html>
