@@ -122,6 +122,7 @@ jobs:
           IMAGE_OWNER: ${{ github.repository_owner }}
           IMAGE_TAG: ${{ needs.publish.outputs.tag }}
         run: |
+          set -e
           sed -i "s|your-org|${IMAGE_OWNER}|g; s|:latest|:${IMAGE_TAG}|g" infra/k8s/*.yaml
           kubectl apply -f infra/k8s/namespace.yaml
           kubectl -n ticket-management get secret route-go-auth >/dev/null || {
@@ -131,7 +132,39 @@ jobs:
           kubectl -n ticket-management delete deployment/ml service/ml --ignore-not-found
           kubectl apply -f infra/k8s/services.yaml -f infra/k8s/deployments.yaml
           kubectl -n ticket-management rollout status deployment/frontend --timeout=180s
-          kubectl -n ticket-management rollout status deployment/backend-py --timeout=180s
+          if ! kubectl -n ticket-management rollout status deployment/backend-py --timeout=180s; then
+            echo "::group::backend-py deployment"
+            kubectl -n ticket-management describe deployment backend-py
+            echo "::endgroup::"
+
+            echo "::group::backend-py pods"
+            kubectl -n ticket-management get pods \
+              -l app=backend-py \
+              -o wide
+            kubectl -n ticket-management describe pods \
+              -l app=backend-py
+            echo "::endgroup::"
+
+            echo "::group::backend-py logs"
+            kubectl -n ticket-management logs \
+              -l app=backend-py \
+              --all-containers \
+              --tail=200 \
+              --prefix
+            kubectl -n ticket-management logs \
+              -l app=backend-py \
+              --all-containers \
+              --previous \
+              --tail=200 \
+              --prefix || true
+            echo "::endgroup::"
+
+            echo "::group::recent Kubernetes events"
+            kubectl -n ticket-management get events --sort-by=.lastTimestamp
+            echo "::endgroup::"
+
+            exit 1
+          fi
           kubectl -n ticket-management rollout status deployment/route-go --timeout=180s
 
       - name: Run staging smoke and health tests
