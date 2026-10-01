@@ -6,7 +6,6 @@ from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_session
 from app.main import app
-from app import main as api_main
 from app import models  # noqa: F401
 
 
@@ -87,20 +86,14 @@ def test_rejects_invalid_ticket_fields_and_empty_updates(client: TestClient) -> 
     assert client.get("/tickets/not-a-ticket").status_code == 404
 
 
-def test_prediction_persists_and_technician_correction_is_evaluated(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(
-        api_main,
-        "predict_category",
-        lambda subject, description: {"category": "Network", "confidence": 0.91},
-    )
+def test_categories_are_manual_and_analytics_count_them(client: TestClient) -> None:
     created = client.post(
         "/tickets",
         json={
             "name": "Taylor Kim",
             "email": "taylor@example.com",
             "subject": "VPN drops",
+            "category": "Network",
             "description": "I lose my network connection during calls.",
         },
     )
@@ -108,60 +101,22 @@ def test_prediction_persists_and_technician_correction_is_evaluated(
     assert created.status_code == 201
     ticket = created.json()
     assert ticket["category"] == "Network"
-    assert ticket["predictedCategory"] == "Network"
-    assert ticket["predictionConfidence"] == 0.91
-    assert ticket["categoryCorrectedAt"] is None
+    assert "predictedCategory" not in ticket
+    assert "predictionConfidence" not in ticket
 
     corrected = client.patch("/tickets/TK-1001", json={"category": "Hardware"})
     assert corrected.status_code == 200
     assert corrected.json()["category"] == "Hardware"
-    assert corrected.json()["predictedCategory"] == "Network"
-    assert corrected.json()["categoryCorrectedAt"]
-
+    defaulted = client.post(
+        "/tickets",
+        json={
+            "name": "Taylor Kim",
+            "email": "taylor@example.com",
+            "subject": "General request",
+            "description": "No category was provided by this API client.",
+        },
+    )
+    assert defaulted.status_code == 201
+    assert defaulted.json()["category"] == "Other"
     analytics = client.get("/analytics").json()
-    assert analytics["categoryCorrections"] == 1
-    assert analytics["reviewedPredictions"] == 1
-    assert analytics["predictionAccuracy"] == 0
-    assert analytics["categoryCounts"]["Hardware"] == 1
-
-    monkeypatch.setattr(
-        api_main,
-        "predict_category",
-        lambda subject, description: {"category": "Software", "confidence": 0.82},
-    )
-    second = client.post(
-        "/tickets",
-        json={
-            "name": "Taylor Kim",
-            "email": "taylor@example.com",
-            "subject": "App crash",
-            "description": "The desktop software closes at startup.",
-        },
-    ).json()
-    confirmed = client.patch(f"/tickets/{second['id']}", json={"category": "Software"})
-    assert confirmed.json()["categoryReviewedAt"]
-    assert confirmed.json()["categoryCorrectedAt"] is None
-    updated_analytics = client.get("/analytics").json()
-    assert updated_analytics["categoryCorrections"] == 1
-    assert updated_analytics["reviewedPredictions"] == 2
-    assert updated_analytics["predictionAccuracy"] == 0.5
-
-
-def test_ticket_creation_falls_back_when_prediction_is_unavailable(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(api_main, "predict_category", lambda subject, description: None)
-    created = client.post(
-        "/tickets",
-        json={
-            "name": "Taylor Kim",
-            "email": "taylor@example.com",
-            "subject": "Uncategorized request",
-            "description": "The classifier service is unavailable.",
-        },
-    )
-
-    assert created.status_code == 201
-    assert created.json()["category"] == "Other"
-    assert created.json()["predictedCategory"] is None
-    assert created.json()["predictionConfidence"] is None
+    assert analytics == {"categoryCounts": {"Hardware": 1, "Other": 1}}

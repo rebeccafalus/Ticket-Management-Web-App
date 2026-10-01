@@ -69,9 +69,6 @@ spec:
           envFrom:
             - secretRef:
                 name: postgres
-          env:
-            - name: ML_SERVICE_URL
-              value: http://ml:8001
           ports:
             - containerPort: 8000
           readinessProbe:
@@ -82,44 +79,6 @@ spec:
             httpGet:
               path: /health
               port: 8000
-          securityContext:
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false
-            capabilities:
-              drop:
-                - ALL
-            runAsNonRoot: true
-            seccompProfile:
-              type: RuntimeDefault
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: ml
-  namespace: ticket-management
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: ml
-  template:
-    metadata:
-      labels:
-        app: ml
-    spec:
-      containers:
-        - name: ml
-          image: ghcr.io/your-org/ticket-management-ml:latest
-          ports:
-            - containerPort: 8001
-          readinessProbe:
-            httpGet:
-              path: /health
-              port: 8001
-          livenessProbe:
-            httpGet:
-              path: /health
-              port: 8001
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: false

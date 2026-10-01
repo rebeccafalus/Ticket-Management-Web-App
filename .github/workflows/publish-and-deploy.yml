@@ -61,15 +61,6 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-route-go:${{ steps.meta.outputs.tag }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-route-go:latest
 
-      - name: Build and publish ML service
-        uses: docker/build-push-action@v6
-        with:
-          context: ml
-          push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-ml:${{ steps.meta.outputs.tag }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-ml:latest
-
       - name: Scan published images with Trivy
         uses: aquasecurity/trivy-action@v0.36.0
         with:
@@ -95,14 +86,6 @@ jobs:
           ignore-unfixed: true
           exit-code: "1"
           version: v0.74.0
-
-      - name: Scan published ML image with Trivy
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-ml:${{ steps.meta.outputs.tag }}
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-          exit-code: "1"
 
   staging:
     needs: publish
@@ -145,10 +128,10 @@ jobs:
             echo "::error::Provision route-go-auth from the staging secret manager before deployment"
             exit 1
           }
+          kubectl -n ticket-management delete deployment/ml service/ml --ignore-not-found
           kubectl apply -f infra/k8s/services.yaml -f infra/k8s/deployments.yaml
           kubectl -n ticket-management rollout status deployment/frontend --timeout=180s
           kubectl -n ticket-management rollout status deployment/backend-py --timeout=180s
-          kubectl -n ticket-management rollout status deployment/ml --timeout=180s
           kubectl -n ticket-management rollout status deployment/route-go --timeout=180s
 
       - name: Run staging smoke and health tests
@@ -182,23 +165,20 @@ jobs:
             assert response.status == 200
             assert b"switchboard" in response.read().lower()
           assert get("http://backend-py:8000/health")["status"] == "ok"
-          assert get("http://ml:8001/health")["status"] == "ok"
           assert get("http://route-go:8080/health")["status"] == "ok"
-          assert get("http://ml:8001/analysis")["holdout"]["examples"] == 10
 
           ticket = send("http://frontend/api/tickets", {
             "name": "Staging Smoke",
             "email": "staging-smoke@example.com",
             "subject": "VPN connection drops",
+            "category": "Network",
             "priority": "Low",
             "description": "The office network VPN disconnects during calls.",
           })
           assert ticket["category"] == "Network", ticket
-          assert ticket["predictedCategory"] == "Network", ticket
-          assert ticket["predictionConfidence"] is not None, ticket
           ticket_url = f"http://frontend/api/tickets/{ticket['id']}"
           persisted = get(ticket_url)
-          assert persisted["predictedCategory"] == "Network", persisted
+          assert persisted["category"] == "Network", persisted
 
           corrected = send(ticket_url, {
             "category": "Hardware",
@@ -206,15 +186,12 @@ jobs:
             "assignee": "Alex Chen",
           }, method="PATCH")
           assert corrected["category"] == "Hardware", corrected
-          assert corrected["categoryCorrectedAt"], corrected
           updated = get(ticket_url)
           assert updated["category"] == "Hardware", updated
-          assert updated["predictedCategory"] == "Network", updated
           assert updated["status"] == "In progress", updated
           assert updated["assignee"] == "Alex Chen", updated
           analytics = get("http://frontend/api/analytics")
-          assert analytics["reviewedPredictions"] >= 1, analytics
-          assert analytics["categoryCorrections"] >= 1, analytics
+          assert analytics["categoryCounts"]["Hardware"] >= 1, analytics
           PY
   production:
     needs: [publish, staging]
@@ -251,8 +228,8 @@ jobs:
             echo "::error::Provision route-go-auth from the production secret manager before deployment"
             exit 1
           }
+          kubectl -n ticket-management delete deployment/ml service/ml --ignore-not-found
           kubectl apply -f infra/k8s/services.yaml -f infra/k8s/deployments.yaml
           kubectl -n ticket-management rollout status deployment/frontend --timeout=180s
           kubectl -n ticket-management rollout status deployment/backend-py --timeout=180s
-          kubectl -n ticket-management rollout status deployment/ml --timeout=180s
           kubectl -n ticket-management rollout status deployment/route-go --timeout=180s

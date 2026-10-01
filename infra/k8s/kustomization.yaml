@@ -15,9 +15,6 @@ images:
   - name: ghcr.io/your-org/ticket-management-backend-py
     newName: infra-backend-py
     newTag: latest
-  - name: ghcr.io/your-org/ticket-management-ml
-    newName: infra-ml
-    newTag: latest
   - name: ghcr.io/your-org/ticket-management-route-go
     newName: infra-route-go
     newTag: latest

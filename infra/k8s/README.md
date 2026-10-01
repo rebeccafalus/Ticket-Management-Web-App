@@ -1,8 +1,8 @@
 # Kubernetes deployment
 
-The manifests define four one-replica application deployments plus one
+The manifests define three one-replica application deployments plus one
 persistent PostgreSQL StatefulSet in the `ticket-management` namespace:
-frontend, Python API, ML, Go route service, and PostgreSQL. Every workload has
+frontend, Python API, Go route service, and PostgreSQL. Every workload has
 readiness and liveness checks, and the GitHub Actions workflow waits for every
 rollout before running the smoke tests.
 
@@ -22,6 +22,7 @@ kubectl -n ticket-management create secret generic route-go-auth \\
   --from-literal=TICKET_PASSWORD="$TICKET_PASSWORD" \\
   --from-literal=ADMIN_USERNAME="$ADMIN_USERNAME" \\
   --from-literal=ADMIN_PASSWORD="$ADMIN_PASSWORD"
+kubectl -n ticket-management delete deployment/ml service/ml --ignore-not-found
 kubectl apply -k infra/k8s
 ```
 
@@ -33,6 +34,8 @@ applying workloads.
 
 The overlay is the root `infra/k8s/kustomization.yaml`; the GitHub Actions
 workflow applies the plain manifests directly after replacing their image tags.
+The delete command also removes the former ML workload when upgrading an
+existing cluster.
 
 The Python API runs the Alembic migration as an init container before starting.
 The `postgres` Secret must provide `POSTGRES_DB`, `POSTGRES_USER`, and

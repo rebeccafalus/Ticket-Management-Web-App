@@ -109,10 +109,10 @@ owner and immutable tag. For a manual deployment, use the same image tag in
 
 ```bash
 kubectl apply -f ../k8s/namespace.yaml
+kubectl -n ticket-management delete deployment/ml service/ml --ignore-not-found
 kubectl apply -f ../k8s/services.yaml -f ../k8s/deployments.yaml
 kubectl -n ticket-management rollout status deployment/frontend
 kubectl -n ticket-management rollout status deployment/backend-py
-kubectl -n ticket-management rollout status deployment/ml
 kubectl -n ticket-management rollout status deployment/route-go
 ```
 

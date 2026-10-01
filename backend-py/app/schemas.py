@@ -66,10 +66,6 @@ class TicketRead(BaseModel):
     name: str
     email: EmailStr
     category: TicketCategory
-    predicted_category: TicketCategory | None
-    prediction_confidence: float | None
-    category_reviewed_at: datetime | None
-    category_corrected_at: datetime | None
     priority: TicketPriority
     description: str
     status: TicketStatus

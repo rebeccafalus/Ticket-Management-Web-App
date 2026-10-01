@@ -4,7 +4,6 @@ This workspace is split into four repository areas:
 
 - `frontend/` - web client
 - `backend-py/` - Python API
-- `ml/` - ML service
 - `route-go/` - Go routing service
 - `infra/` - local service orchestration
 
@@ -52,11 +51,12 @@ The Python API persists tickets in PostgreSQL. It supports:
 - `POST /tickets` to create a ticket with `name`, `email`, `subject`, `category`, `priority`, and `description`.
 - `GET /tickets` to list tickets; optional `status`, `assignee`, `search`, `limit`, and `offset` filters are supported. Use `assignee=unassigned` for unassigned tickets.
 - `GET /tickets/{id}` to read a ticket by its public key, such as `TK-1001`.
-- `PATCH /tickets/{id}` to update `status` and/or `assignee`; setting `assignee` to `null` clears the assignment.
+- `PATCH /tickets/{id}` to update `status`, `assignee`, and/or `category`; setting `assignee` to `null` clears the assignment.
 
 Allowed statuses are `Open`, `In progress`, and `Resolved`; priorities are `Low`,
-`Normal`, and `High`. Response timestamps use ISO 8601 in `createdAt` and
-`resolvedAt` fields. The schema is managed with Alembic migrations in
+`Normal`, and `High`. Categories are selected when submitting a request or edited
+by a technician; API clients that omit a category get `Other`. Response
+timestamps use ISO 8601 in `createdAt` and `resolvedAt` fields. The schema is managed with Alembic migrations in
 `backend-py/migrations/`.
 
 The frontend uses these endpoints through its same-origin `/api/` path; the
@@ -64,24 +64,7 @@ frontend's Nginx server forwards those requests to `backend-py`. The Go service
 remains a separate authenticated ticket-guide and Prometheus-metrics service,
 not an API gateway.
 
-## Ticket classification
-
-The ML service classifies ticket subjects and descriptions into the five
-service categories. `POST /predict` returns a category and confidence;
-`GET /analysis` reports training-set counts and metrics on a fixed holdout set,
-and `POST /evaluate` evaluates caller-supplied labeled examples. Ticket
-creation calls the ML service and stores both the predicted category and
-confidence. If ML is unavailable, the API preserves a supplied category for
-legacy clients or uses `Other` and leaves prediction fields empty.
-
-The bundled training and holdout examples are starter data for demonstrating
-the full workflow, not a production-quality model; replace them with reviewed,
-representative ticket data before relying on predictions operationally.
-
-Technicians can confirm or change the category in the ticket detail panel.
-Reviewed labels are retained separately from model predictions, and
-`GET /analytics` reports category totals, correction counts, and accuracy over
-technician-reviewed predictions only.
+`GET /analytics` reports ticket totals by category.
 
 ## Prometheus monitoring
 
@@ -127,7 +110,7 @@ The GitHub Actions workflows provide:
 - Required merge gates: configure `Pull request validation / validate` as a required status check in branch protection
 - Image publishing: immutable SHA tags and `latest` tags in GitHub Container Registry
 - Staging deployment: automatic deployment to Kubernetes after a successful `main` build, followed by rollout and smoke tests
-- Kubernetes workload: one frontend pod, one Python API pod, one ML pod, and one Go pod
+- Kubernetes workload: one frontend pod, one Python API pod, and one Go pod
 - PostgreSQL: one persistent StatefulSet pod named `postgres`
 - Production deployment: paused behind the GitHub `production` Environment approval rule
 - Security scanning: Trivy filesystem and image scans on pull requests, releases, and every Monday at 03:30 UTC
@@ -139,7 +122,7 @@ Configure these repository settings before enabling deployments:
 3. Protect `main` and require the `Pull request validation / validate` check before merging.
 4. Grant the Actions workflow permission to write packages, and make the GHCR packages readable by the target clusters.
 
-Kubernetes manifests are in `infra/k8s/`. The deployment workflow replaces the placeholder registry owner and image tag before applying them. The desired workload is five pods: `frontend`, `backend-py`, `ml`, `route-go`, and `postgres`, each with one replica.
+Kubernetes manifests are in `infra/k8s/`. The deployment workflow replaces the placeholder registry owner and image tag before applying them. The desired workload is four pods: `frontend`, `backend-py`, `route-go`, and `postgres`, each with one replica.
 
 The Kubernetes frontend remains internal because the technician queue has no
 sign-in; operators can access it with the `kubectl port-forward` command in
@@ -147,7 +130,7 @@ sign-in; operators can access it with the `kubectl port-forward` command in
 submits a ticket through the frontend, reads it back, corrects its category,
 updates technician assignment and status, and verifies the persisted values.
 
-Azure AKS and managed PostgreSQL provisioning is documented in [infra/terraform/README.md](infra/terraform/README.md). In Azure, PostgreSQL is managed outside Kubernetes, so deploy only the four application workloads and do not apply the local PostgreSQL StatefulSet.
+Azure AKS and managed PostgreSQL provisioning is documented in [infra/terraform/README.md](infra/terraform/README.md). In Azure, PostgreSQL is managed outside Kubernetes, so deploy only the three application workloads and do not apply the local PostgreSQL StatefulSet.
 
 The Terraform deployment defaults to West Central US because this subscription
 has PostgreSQL provisioning restrictions in East US.
@@ -165,14 +148,12 @@ Every deployment uses an immutable commit SHA image tag. To roll back a failed s
 kubectl -n ticket-management rollout history deployment/frontend
 kubectl -n ticket-management rollout undo deployment/frontend --to-revision=<revision>
 kubectl -n ticket-management rollout undo deployment/backend-py --to-revision=<revision>
-kubectl -n ticket-management rollout undo deployment/ml --to-revision=<revision>
 kubectl -n ticket-management rollout undo deployment/route-go --to-revision=<revision>
 kubectl -n ticket-management rollout history statefulset/postgres
 kubectl -n ticket-management rollout undo statefulset/postgres --to-revision=<revision>
 kubectl -n ticket-management rollout status statefulset/postgres --timeout=180s
 kubectl -n ticket-management rollout status deployment/frontend --timeout=180s
 kubectl -n ticket-management rollout status deployment/backend-py --timeout=180s
-kubectl -n ticket-management rollout status deployment/ml --timeout=180s
 kubectl -n ticket-management rollout status deployment/route-go --timeout=180s
 ```
 

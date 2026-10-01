@@ -49,13 +49,10 @@
       .nav-tab { min-height: 36px; padding: 0 14px; border: 0; border-radius: 7px; color: #69766f; background: transparent; font-size: 13px; font-weight: 600; }
       .nav-tab[aria-selected="true"] { color: var(--ink); background: #fff; box-shadow: 0 1px 4px #18291f14; }
       .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 17px; }
-      .analysis-strip { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 20px; margin: 0 0 17px; padding: 14px 17px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+      .analysis-strip { margin: 0 0 17px; padding: 14px 17px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
       .analysis-title { margin: 0 0 9px; font: 600 13px "Space Grotesk", sans-serif; }
       .category-breakdown { display: flex; gap: 7px 15px; flex-wrap: wrap; color: #68756d; font-size: 11px; }
       .category-breakdown strong { color: var(--ink); font-weight: 700; }
-      .analysis-score { min-width: 160px; padding-left: 20px; border-left: 1px solid var(--line); }
-      .analysis-score span, .analysis-score small { display: block; color: var(--muted); font-size: 11px; }
-      .analysis-score strong { display: block; margin: 2px 0; font: 600 20px "Space Grotesk", sans-serif; }
       .stat { display: flex; align-items: center; justify-content: space-between; min-height: 77px; padding: 15px 18px; border: 1px solid var(--line); border-radius: 9px; background: var(--paper); }
       .stat-label { display: block; color: var(--muted); font-size: 12px; }
       .stat-value { display: block; margin-top: 2px; font: 600 24px/1.1 "Space Grotesk", sans-serif; }
@@ -153,8 +150,6 @@
         .nav-tab { flex: 1; padding: 0 8px; }
         .stats { grid-template-columns: 1fr 1fr; }
         .stat { min-height: 68px; }
-        .analysis-strip { grid-template-columns: 1fr; gap: 12px; }
-        .analysis-score { padding: 11px 0 0; border-top: 1px solid var(--line); border-left: 0; }
         .queue-toolbar { flex-wrap: wrap; }
         .search-wrap { flex-basis: 100%; max-width: none; }
         .filter-select { flex: 1; }
@@ -201,7 +196,6 @@
         </div>
         <section class="analysis-strip" aria-labelledby="analysis-title">
           <div><h2 class="analysis-title" id="analysis-title">Ticket categories</h2><div class="category-breakdown" id="category-breakdown" aria-live="polite"></div></div>
-          <div class="analysis-score"><span>Technician-reviewed accuracy</span><strong id="prediction-accuracy">Not evaluated</strong><small id="reviewed-count">No reviewed predictions yet</small></div>
         </section>
         <div class="queue-toolbar">
           <label class="search-wrap"><span hidden>Search requests</span><input id="search-input" type="search" placeholder="Search requests…" aria-label="Search requests" /></label>
@@ -222,11 +216,12 @@
         <div class="form-layout">
           <form class="form-panel" id="ticket-form">
             <h2>Tell us what you need</h2>
-            <p class="form-intro">Share a few details and our support team will take it from here. The service category is suggested automatically.</p>
+            <p class="form-intro">Share a few details and choose the service category that best fits your request.</p>
             <div class="form-grid">
               <div class="field"><label for="requester-name">Your name</label><input id="requester-name" name="name" autocomplete="name" placeholder="e.g. Taylor Kim" required maxlength="80" /></div>
               <div class="field"><label for="requester-email">Work email</label><input id="requester-email" name="email" type="email" autocomplete="email" placeholder="you@company.com" required maxlength="160" /></div>
               <div class="field wide"><label for="ticket-subject">Subject</label><input id="ticket-subject" name="subject" placeholder="What do you need help with?" required maxlength="120" /></div>
+              <div class="field"><label for="ticket-category">Category</label><select id="ticket-category" name="category" required><option value="" selected disabled>Select a category</option><option>Account access</option><option>Hardware</option><option>Software</option><option>Network</option><option>Other</option></select></div>
               <div class="field"><label for="ticket-priority">Priority</label><select id="ticket-priority" name="priority"><option>Normal</option><option>High</option><option>Low</option></select><p class="help-text">Choose high only if work is blocked.</p></div>
               <div class="field wide"><label for="ticket-description">Description</label><textarea id="ticket-description" name="description" placeholder="Include what happened, what you expected, and anything you have already tried." required maxlength="3000"></textarea></div>
             </div>
@@ -272,15 +267,8 @@
           document.getElementById("category-breakdown").innerHTML = categories.map(category =>
             `<span>${escapeHtml(category)} <strong>${analytics.categoryCounts[category] || 0}</strong></span>`
           ).join("");
-          document.getElementById("prediction-accuracy").textContent = analytics.predictionAccuracy === null
-            ? "Not evaluated"
-            : `${Math.round(analytics.predictionAccuracy * 100)}%`;
-          document.getElementById("reviewed-count").textContent = analytics.reviewedPredictions
-            ? `${analytics.reviewedPredictions} technician-reviewed predictions · ${analytics.categoryCorrections} corrected`
-            : "No reviewed predictions yet";
         } catch (error) {
           document.getElementById("category-breakdown").textContent = "Analysis unavailable";
-          document.getElementById("prediction-accuracy").textContent = "Unavailable";
         }
       }
 
@@ -349,19 +337,16 @@
         if (!ticket) return;
         const assigneeOptions = ['<option value="">Unassigned</option>', ...technicians.map(name => `<option value="${escapeHtml(name)}" ${ticket.assignee === name ? "selected" : ""}>${escapeHtml(name)}</option>`)].join("");
         const categoryOptions = categories.map(category => `<option value="${escapeHtml(category)}" ${ticket.category === category ? "selected" : ""}>${escapeHtml(category)}</option>`).join("");
-        const predictionNote = ticket.predictedCategory
-          ? `Suggested: ${ticket.predictedCategory} · ${Math.round(ticket.predictionConfidence * 100)}% confidence${ticket.categoryReviewedAt ? " · reviewed" : ""}`
-          : "No model prediction available";
         detail.innerHTML = `<div class="detail-top"><div><div class="detail-id">${escapeHtml(ticket.id)} <span aria-hidden="true">·</span> Received ${relativeDate(ticket.createdAt)}</div><h2>${escapeHtml(ticket.subject)}</h2><div class="detail-meta">Submitted by ${escapeHtml(ticket.name)}</div></div><span class="status ${statusClass(ticket.status)}">${escapeHtml(ticket.status)}</span></div>
           <p class="detail-description">${escapeHtml(ticket.description)}</p>
           <div class="action-grid">
             <div class="field"><label for="detail-status">Status</label><select id="detail-status"><option ${ticket.status === "Open" ? "selected" : ""}>Open</option><option ${ticket.status === "In progress" ? "selected" : ""}>In progress</option><option ${ticket.status === "Resolved" ? "selected" : ""}>Resolved</option></select></div>
             <div class="field"><label for="detail-assignee">Assigned technician</label><select id="detail-assignee">${assigneeOptions}</select></div>
-            <div class="field"><label for="detail-category">Service category</label><select id="detail-category">${categoryOptions}</select><p class="help-text">${escapeHtml(predictionNote)}</p></div>
+            <div class="field"><label for="detail-category">Service category</label><select id="detail-category">${categoryOptions}</select></div>
           </div>
-          <div class="category-save"><button class="button button-secondary" id="save-category" type="button">Save reviewed category</button></div>
+          <div class="category-save"><button class="button button-secondary" id="save-category" type="button">Save category</button></div>
           <section class="detail-section"><h3 class="section-title">Requester</h3><div class="requester"><span class="requester-avatar">${escapeHtml(initials(ticket.name))}</span><div><div class="requester-name">${escapeHtml(ticket.name)}</div><a class="requester-email" href="mailto:${escapeHtml(ticket.email)}">${escapeHtml(ticket.email)}</a></div></div></section>
-          <div class="detail-tags"><span class="tag">${escapeHtml(ticket.category)}</span><span class="tag">${escapeHtml(ticket.priority)} priority</span>${ticket.categoryCorrectedAt ? '<span class="tag">Category corrected</span>' : ""}${ticket.resolvedAt ? `<span class="tag">Resolved ${relativeDate(ticket.resolvedAt)}</span>` : ""}</div>`;
+          <div class="detail-tags"><span class="tag">${escapeHtml(ticket.category)}</span><span class="tag">${escapeHtml(ticket.priority)} priority</span>${ticket.resolvedAt ? `<span class="tag">Resolved ${relativeDate(ticket.resolvedAt)}</span>` : ""}</div>`;
         detail.querySelector("#detail-status").addEventListener("change", event => updateTicket(ticket.id, { status: event.target.value }));
         detail.querySelector("#detail-assignee").addEventListener("change", event => updateTicket(ticket.id, { assignee: event.target.value }));
         detail.querySelector("#save-category").addEventListener("click", () => updateTicket(ticket.id, { category: detail.querySelector("#detail-category").value }));
@@ -382,7 +367,7 @@
           renderQueue();
           if (Object.hasOwn(updates, "category")) {
             loadCategoryAnalytics();
-            showToast(ticket.category === ticket.predictedCategory ? "Category confirmed" : "Category correction saved");
+            showToast("Category updated");
           } else {
             showToast("Request updated");
           }
@@ -429,6 +414,7 @@
               name: form.get("name").trim(),
               email: form.get("email").trim(),
               subject: form.get("subject").trim(),
+              category: form.get("category"),
               priority: form.get("priority"),
               description: form.get("description").trim()
             })
