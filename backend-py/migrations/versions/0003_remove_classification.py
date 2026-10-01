@@ -1,6 +1,6 @@
 """Remove ML prediction and review fields from tickets.
 
-Revision ID: 0003_remove_ticket_classification
+Revision ID: 0003_remove_classification
 Revises: 0002_ticket_classification
 Create Date: 2026-10-01
 """
@@ -10,7 +10,7 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 
-revision: str = "0003_remove_ticket_classification"
+revision: str = "0003_remove_classification"
 down_revision: Union[str, None] = "0002_ticket_classification"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
