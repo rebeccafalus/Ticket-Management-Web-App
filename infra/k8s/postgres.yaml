@@ -20,7 +20,8 @@ spec:
   selector:
     app: postgres
   ports:
-    - port: 5432
+    - name: postgres
+      port: 5432
       targetPort: 5432
 ---
 apiVersion: apps/v1
@@ -43,29 +44,64 @@ spec:
         - name: postgres
           image: postgres:16-alpine
           imagePullPolicy: IfNotPresent
-          ports:
-            - containerPort: 5432
+
+          env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+
           envFrom:
             - secretRef:
                 name: postgres
+
+          ports:
+            - containerPort: 5432
+
           readinessProbe:
             exec:
-              command: ["pg_isready", "-U", "tickets", "-d", "tickets"]
+              command:
+                - pg_isready
+                - -U
+                - tickets
+                - -d
+                - tickets
             initialDelaySeconds: 5
             periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 6
+
           livenessProbe:
             exec:
-              command: ["pg_isready", "-U", "tickets", "-d", "tickets"]
+              command:
+                - pg_isready
+                - -U
+                - tickets
+                - -d
+                - tickets
             initialDelaySeconds: 15
             periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+
           volumeMounts:
             - name: postgres-data
               mountPath: /var/lib/postgresql/data
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+
+      terminationGracePeriodSeconds: 30
+
   volumeClaimTemplates:
     - metadata:
         name: postgres-data
       spec:
-        accessModes: ["ReadWriteOnce"]
+        accessModes:
+          - ReadWriteOnce
         resources:
           requests:
             storage: 1Gi
