@@ -129,7 +129,6 @@ jobs:
             echo "::error::Provision route-go-auth from the staging secret manager before deployment"
             exit 1
           }
-          kubectl -n ticket-management delete deployment/ml service/ml --ignore-not-found
           kubectl apply -f infra/k8s/services.yaml -f infra/k8s/deployments.yaml
           kubectl -n ticket-management rollout status deployment/frontend --timeout=180s
           if ! kubectl -n ticket-management rollout status deployment/backend-py --timeout=180s; then
@@ -261,7 +260,6 @@ jobs:
             echo "::error::Provision route-go-auth from the production secret manager before deployment"
             exit 1
           }
-          kubectl -n ticket-management delete deployment/ml service/ml --ignore-not-found
           kubectl apply -f infra/k8s/services.yaml -f infra/k8s/deployments.yaml
           kubectl -n ticket-management rollout status deployment/frontend --timeout=180s
           kubectl -n ticket-management rollout status deployment/backend-py --timeout=180s
