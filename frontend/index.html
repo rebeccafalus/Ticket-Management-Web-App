@@ -117,6 +117,8 @@
       .form-grid input, .form-grid select, .form-grid textarea { min-height: 42px; padding: 10px 11px; border: 1px solid #dce5df; border-radius: 6px; color: #26362d; background: #fff; }
       .form-grid textarea { min-height: 132px; resize: vertical; }
       .help-text { margin: 5px 0 0; color: #87928b; font-size: 11px; }
+      .field-info { display: inline-grid; width: 15px; height: 15px; place-items: center; margin-left: 4px; border: 1px solid #aab6ae; border-radius: 50%; color: #68756d; font-size: 10px; line-height: 1; text-transform: none; cursor: help; }
+      .field-info:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
       .form-footer { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-top: 20px; padding-top: 17px; border-top: 1px solid #edf1ee; }
       .privacy-note { margin: 0; color: #7b8880; font-size: 11px; }
       .side-panel { overflow: hidden; }
@@ -215,15 +217,18 @@
       <section id="submit-view" role="tabpanel" aria-labelledby="submit-tab" hidden>
         <div class="form-layout">
           <form class="form-panel" id="ticket-form">
-            <h2>Tell us what you need</h2>
-            <p class="form-intro">Share a few details and choose the service category that best fits your request.</p>
+            <h2>Report a device issue</h2>
+            <p class="form-intro">Provide your contact details and information about the impacted device.</p>
             <div class="form-grid">
-              <div class="field"><label for="requester-name">Your name</label><input id="requester-name" name="name" autocomplete="name" placeholder="e.g. Taylor Kim" required maxlength="80" /></div>
-              <div class="field"><label for="requester-email">Work email</label><input id="requester-email" name="email" type="email" autocomplete="email" placeholder="you@company.com" required maxlength="160" /></div>
-              <div class="field wide"><label for="ticket-subject">Subject</label><input id="ticket-subject" name="subject" placeholder="What do you need help with?" required maxlength="120" /></div>
-              <div class="field"><label for="ticket-category">Category</label><select id="ticket-category" name="category" required><option value="" selected disabled>Select a category</option><option>Account access</option><option>Hardware</option><option>Software</option><option>Network</option><option>Other</option></select></div>
-              <div class="field"><label for="ticket-priority">Priority</label><select id="ticket-priority" name="priority"><option>Normal</option><option>High</option><option>Low</option></select><p class="help-text">Choose high only if work is blocked.</p></div>
-              <div class="field wide"><label for="ticket-description">Description</label><textarea id="ticket-description" name="description" placeholder="Include what happened, what you expected, and anything you have already tried." required maxlength="3000"></textarea></div>
+              <div class="field"><label for="first-name">First Name <span class="field-info" tabindex="0" title="Enter your given name." aria-label="Information: Enter your given name.">i</span></label><input id="first-name" name="firstName" autocomplete="given-name" placeholder="e.g. Taylor" required maxlength="39" /></div>
+              <div class="field"><label for="last-name">Last Name <span class="field-info" tabindex="0" title="Enter your family name." aria-label="Information: Enter your family name.">i</span></label><input id="last-name" name="lastName" autocomplete="family-name" placeholder="e.g. Kim" required maxlength="39" /></div>
+              <div class="field"><label for="requester-email">Email <span class="field-info" tabindex="0" title="Use an email address where support can reach you." aria-label="Information: Use an email address where support can reach you.">i</span></label><input id="requester-email" name="email" type="email" autocomplete="email" placeholder="you@company.com" required maxlength="160" /></div>
+              <div class="field"><label for="office-location">Office Location <span class="field-info" tabindex="0" title="Enter the office, site, or remote location where the device is used." aria-label="Information: Enter the office, site, or remote location where the device is used.">i</span></label><input id="office-location" name="officeLocation" autocomplete="organization" placeholder="e.g. Seattle office" required maxlength="120" /></div>
+              <div class="field"><label for="serial-number">Serial Number (SN) of Impacted Device <span class="field-info" tabindex="0" title="Enter the serial number from the device label or system settings." aria-label="Information: Enter the serial number from the device label or system settings.">i</span></label><input id="serial-number" name="serialNumber" placeholder="Device serial number" required maxlength="90" /></div>
+              <div class="field"><label for="issue-start">When Did This Issue Start <span class="field-info" tabindex="0" title="Choose the date and time you first noticed the issue." aria-label="Information: Choose the date and time you first noticed the issue.">i</span></label><input id="issue-start" name="issueStart" type="datetime-local" required /></div>
+              <div class="field"><label for="ticket-urgency">Urgency <span class="field-info" tabindex="0" title="Mild: minor impact. Moderate: work is affected. Severe: work is blocked or the device is unusable." aria-label="Information: Mild means minor impact; Moderate means work is affected; Severe means work is blocked or the device is unusable.">i</span></label><select id="ticket-urgency" name="urgency" required><option value="" selected disabled>Select urgency</option><option>Mild</option><option>Moderate</option><option>Severe</option></select></div>
+              <div class="field"><label for="us00-number">US00 Number <span class="field-info" tabindex="0" title="Enter your US00 number if you have one." aria-label="Information: Enter your US00 number if you have one.">i</span></label><input id="us00-number" name="us00Number" placeholder="Optional" maxlength="80" /></div>
+              <div class="field"><label for="warranty-expiration">Device Warranty Expiration Date <span class="field-info" tabindex="0" title="Enter the warranty expiration date if known." aria-label="Information: Enter the warranty expiration date if known.">i</span></label><input id="warranty-expiration" name="warrantyExpiration" type="date" /></div>
             </div>
             <div class="form-footer"><p class="privacy-note">Your request is shared with the internal support team.</p><button class="button" type="submit">Send request <span aria-hidden="true">→</span></button></div>
           </form>
@@ -408,15 +413,26 @@
         const submitButton = formElement.querySelector("button[type=submit]");
         submitButton.disabled = true;
         try {
+          const firstName = form.get("firstName").trim();
+          const lastName = form.get("lastName").trim();
+          const urgencyPriority = { Mild: "Low", Moderate: "Normal", Severe: "High" }[form.get("urgency")];
+          const details = [
+            `Office location: ${form.get("officeLocation").trim()}`,
+            `Impacted device serial number: ${form.get("serialNumber").trim()}`,
+            `Issue started: ${form.get("issueStart")}`,
+            `Urgency: ${form.get("urgency")}`,
+            form.get("us00Number").trim() && `US00 number: ${form.get("us00Number").trim()}`,
+            form.get("warrantyExpiration") && `Device warranty expiration date: ${form.get("warrantyExpiration")}`
+          ].filter(Boolean).join("\n");
           const ticket = await apiRequest("/tickets", {
             method: "POST",
             body: JSON.stringify({
-              name: form.get("name").trim(),
+              name: `${firstName} ${lastName}`,
               email: form.get("email").trim(),
-              subject: form.get("subject").trim(),
-              category: form.get("category"),
-              priority: form.get("priority"),
-              description: form.get("description").trim()
+              subject: `Device support request - ${form.get("serialNumber").trim()}`,
+              category: "Hardware",
+              priority: urgencyPriority,
+              description: details
             })
           });
           selectedId = ticket.id;
